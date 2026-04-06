@@ -1,0 +1,432 @@
+---
+title: "MQTT API"
+description: "Publish and subscribe to MQTT topics to send and receive CAN bus frames, request OBD-II PIDs, and stream filtered vehicle telemetry with WiCAN."
+---
+
+WiCAN connects to any MQTT broker and communicates over a set of structured topics using JSON payloads. You can transmit arbitrary CAN frames, subscribe to all frames received from the bus, issue OBD-II PID requests, and configure automatic CAN-to-JSON filtering that publishes decoded vehicle parameters at a configurable interval.
+
+<Info>
+  Before using the MQTT API, enable and configure the MQTT client in the device web UI under **Settings → MQTT**. You will need the broker address, port, and optionally credentials.
+</Info>
+
+## Device ID
+
+Every WiCAN device has a unique 12-character hexadecimal identifier (for example, `a1b2c3d4e5f6`). This identifier appears as `xxxxxxxxxxxx` in all topic patterns below. You can find your device ID on the **Status** tab of the web UI or by reading the label on the device.
+
+<Note>
+  Topic names are case-sensitive. Use the device ID exactly as shown in the web UI — all lowercase hex characters.
+</Note>
+
+---
+
+## Status topic
+
+WiCAN publishes a retained status message each time it connects to or disconnects from the MQTT broker.
+
+| Property | Value |
+| --- | --- |
+| Topic | `wican/xxxxxxxxxxxx/status` |
+| Direction | Subscribe (device publishes) |
+| Retain | Yes |
+
+### Payload
+
+```json
+{"status": "online"}
+```
+
+```json
+{"status": "offline"}
+```
+
+<ResponseField name="status" type="string" required>
+  Connection state of the device. One of `"online"` or `"offline"`. The broker publishes `"offline"` as a Last Will and Testament message when the device disconnects unexpectedly.
+</ResponseField>
+
+---
+
+## TX topic — send CAN frames
+
+Publish a JSON message to this topic to transmit one or more CAN frames onto the bus.
+
+| Property | Value |
+| --- | --- |
+| Topic | `wican/xxxxxxxxxxxx/can/tx` |
+| Direction | Publish (you send to device) |
+
+### Payload schema
+
+<ParamField body="bus" type="string" required default="0">
+  Always `"0"`. Reserved for future multi-bus support.
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  Message direction. Use `"tx"` when sending frames to the device. The device also uses `"rx"` in received message payloads.
+</ParamField>
+
+<ParamField body="frame" type="object[]" required>
+  Array of one or more CAN frame objects to transmit.
+
+  <Expandable title="Frame object properties">
+    <ParamField body="id" type="number" required>
+      CAN frame identifier in decimal. Use `2015` (`0x7DF`) for standard 11-bit OBD-II broadcast requests or `417018865` (`0x18DB33F1`) for 29-bit extended OBD-II requests.
+    </ParamField>
+
+    <ParamField body="dlc" type="number" required>
+      Data length code — number of bytes in the `data` array. Valid range: `0`–`8`.
+    </ParamField>
+
+    <ParamField body="rtr" type="boolean" required>
+      Remote transmission request flag. Set to `false` for normal data frames; `true` to send an RTR frame (no data bytes).
+    </ParamField>
+
+    <ParamField body="extd" type="boolean" required>
+      Extended frame format flag. Set to `false` for standard 11-bit IDs; `true` for 29-bit extended IDs.
+    </ParamField>
+
+    <ParamField body="data" type="number[]" required>
+      Array of byte values (0–255). Length must match `dlc`. For OBD-II requests, pad unused bytes with `170` (`0xAA`).
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Example — transmit a single CAN frame
+
+```json
+{
+  "bus": "0",
+  "type": "tx",
+  "frame": [
+    {
+      "id": 2015,
+      "dlc": 8,
+      "rtr": false,
+      "extd": false,
+      "data": [2, 1, 70, 170, 170, 170, 170, 170]
+    }
+  ]
+}
+```
+
+---
+
+## RX topic — receive CAN frames
+
+Subscribe to this topic to receive CAN frames captured from the bus. The device may batch multiple frames into a single MQTT message.
+
+| Property | Value |
+| --- | --- |
+| Topic | `wican/xxxxxxxxxxxx/can/rx` |
+| Direction | Subscribe (device publishes) |
+
+### Payload schema
+
+<ResponseField name="bus" type="number" required>
+  Always `0`. Reserved for future multi-bus support.
+</ResponseField>
+
+<ResponseField name="type" type="string" required>
+  Always `"rx"` for frames received from the CAN bus.
+</ResponseField>
+
+<ResponseField name="ts" type="number" required>
+  Timestamp in milliseconds since device boot when the first frame in this message was received.
+</ResponseField>
+
+<ResponseField name="frame" type="object[]" required>
+  Array of received CAN frame objects.
+
+  <Expandable title="Frame object properties">
+    <ResponseField name="id" type="number">
+      CAN frame identifier in decimal.
+    </ResponseField>
+
+    <ResponseField name="dlc" type="number">
+      Data length code — number of data bytes.
+    </ResponseField>
+
+    <ResponseField name="rtr" type="boolean">
+      `true` if this was a remote transmission request frame.
+    </ResponseField>
+
+    <ResponseField name="extd" type="boolean">
+      `true` if the frame used a 29-bit extended identifier.
+    </ResponseField>
+
+    <ResponseField name="data" type="number[]">
+      Array of received byte values.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example — two frames in one message
+
+```json
+{
+  "bus": 0,
+  "type": "rx",
+  "ts": 34610,
+  "frame": [
+    {
+      "id": 123,
+      "dlc": 8,
+      "rtr": false,
+      "extd": false,
+      "data": [1, 2, 3, 4, 5, 6, 7, 8]
+    },
+    {
+      "id": 124,
+      "dlc": 8,
+      "rtr": false,
+      "extd": true,
+      "data": [1, 2, 3, 4, 5, 6, 7, 8]
+    }
+  ]
+}
+```
+
+---
+
+## OBD-II PID requests over MQTT
+
+OBD-II PID requests are standard CAN frames addressed to the ECU broadcast address. The vehicle ECU responds on the RX topic. A full list of standard PIDs is available on [Wikipedia — OBD-II PIDs](https://en.wikipedia.org/wiki/OBD-II_PIDs).
+
+### Request frame format
+
+All OBD-II request frames follow these fixed values:
+
+| Field | Value | Notes |
+| --- | --- | --- |
+| `bus` | `"0"` | Always 0 |
+| `dlc` | `8` | Always 8 |
+| `rtr` | `false` | Always false |
+| `extd` | `false` | For 11-bit protocol (500/250 kbaud) |
+| `extd` | `true` | For 29-bit protocol (500/250 kbaud) |
+| `id` | `2015` (`0x7DF`) | 11-bit broadcast address |
+| `id` | `417018865` (`0x18DB33F1`) | 29-bit broadcast address |
+
+The data bytes follow the ISO 15765-4 request format:
+
+| Byte | Value | Meaning |
+| --- | --- | --- |
+| 0 | `2` | Number of additional data bytes |
+| 1 | `1` | Service 01 (current data) |
+| 2 | PID | PID number in decimal |
+| 3–7 | `170` | Padding (`0xAA`) |
+
+### Example — ambient temperature (PID 70 / `0x46`)
+
+**Request** (topic: `wican/xxxxxxxxxxxx/can/tx`):
+
+```json
+{
+  "bus": "0",
+  "type": "tx",
+  "frame": [
+    {
+      "id": 2015,
+      "dlc": 8,
+      "rtr": false,
+      "extd": false,
+      "data": [2, 1, 70, 170, 170, 170, 170, 170]
+    }
+  ]
+}
+```
+
+### Example — battery state of charge (PID 91 / `0x5B`)
+
+<Warning>
+  This PID is not universally supported. Availability depends on the specific vehicle model and ECU. Test on your target vehicle before relying on it.
+</Warning>
+
+**Request** (topic: `wican/xxxxxxxxxxxx/can/tx`):
+
+```json
+{
+  "bus": "0",
+  "type": "tx",
+  "frame": [
+    {
+      "id": 2015,
+      "dlc": 8,
+      "rtr": false,
+      "extd": false,
+      "data": [2, 1, 91, 170, 170, 170, 170, 170]
+    }
+  ]
+}
+```
+
+**Response** (topic: `wican/xxxxxxxxxxxx/can/rx`):
+
+```json
+{
+  "bus": "0",
+  "type": "rx",
+  "ts": 51561,
+  "frame": [
+    {
+      "id": 2024,
+      "dlc": 8,
+      "rtr": false,
+      "extd": false,
+      "data": [3, 65, 91, 170, 0, 0, 0, 0]
+    }
+  ]
+}
+```
+
+### Parsing the response
+
+In a Service 01 response frame, the ECU replies with `id` 2024 (`0x7E8`). The response data layout is:
+
+| Byte | Value | Meaning |
+| --- | --- | --- |
+| 0 | `3` | Number of additional bytes |
+| 1 | `65` (`0x41`) | Service 01 response marker |
+| 2 | PID | Echo of the requested PID |
+| 3+ | Value bytes | PID-specific data |
+
+For PID 91 (battery SOC), byte 3 contains the raw value. The calculation is:
+
+```
+SOC (%) = (byte_3 × 100) / 255
+         = (170 × 100) / 255
+         ≈ 66.67%
+```
+
+<Tip>
+  For a higher-level alternative to manual PID parsing, use the [Automate feature](/config/automate/usage) which handles polling, parsing, and publishing automatically.
+</Tip>
+
+---
+
+## CAN-to-JSON filtering
+
+The filtering feature converts raw CAN frames into named, human-readable JSON values and publishes them to MQTT at a configurable interval. When at least one filter is configured, WiCAN processes only the matching CAN IDs and ignores all other traffic.
+
+<Warning>
+  When any filter is active, all CAN frames that do not match a configured filter are suppressed from the RX topic. Only filtered, decoded values are published.
+</Warning>
+
+### Output format
+
+Each configured parameter is published as a separate JSON message:
+
+```json
+{"VehicleSpeed": 23.0}
+```
+
+```json
+{"EngineSpeed": 1165.0}
+```
+
+```json
+{"CustomID": 3594.4}
+```
+
+### Configuration parameters
+
+<ParamField body="CAN ID" type="number" required>
+  The CAN frame identifier to match, in decimal. Only frames with this exact ID are processed by this filter entry.
+</ParamField>
+
+<ParamField body="Name" type="string" required>
+  The JSON key used in the published output. For example, `"VehicleSpeed"` produces `{"VehicleSpeed": 23.0}`.
+</ParamField>
+
+<ParamField body="PID" type="number" required>
+  The OBD-II PID number in decimal. For standard PID response frames, set this to the PID being decoded so WiCAN can locate the correct data bytes. Set to `-1` for non-PID raw CAN frames.
+</ParamField>
+
+<ParamField body="Index" type="number" required>
+  The byte index in the response where the PID number appears. For standard OBD-II responses this is always `2` (byte index 2 holds the echoed PID). Ignored when PID is `-1`.
+</ParamField>
+
+<ParamField body="Start Bit" type="number" required>
+  The bit position within the frame data at which to begin extracting the value. Bit numbering is sequential from byte 0, bit 0 (MSB of byte 0). For example, bit 24 is the MSB of byte 3.
+</ParamField>
+
+<ParamField body="Bit Length" type="number" required>
+  The number of consecutive bits to extract as the raw value.
+</ParamField>
+
+<ParamField body="Expression" type="string" required>
+  A mathematical expression applied to the extracted raw value. Use the letter `V` to represent the extracted value. For example: `V * 0.25`. See [Expression Syntax](/api/expression-syntax) for the full syntax reference.
+</ParamField>
+
+<ParamField body="Cycle" type="number" required>
+  The publishing interval in milliseconds. Valid range: `100`–`10000`.
+</ParamField>
+
+### Example — engine speed (PID 12 / `0x0C`)
+
+Response frame layout for engine speed:
+
+| Field | Byte 0 | Byte 1 | Byte 2 | Byte 3 | Byte 4 | Byte 5 | Byte 6 | Byte 7 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Engine Speed | `4` | `65` | **`12`** | `18` | `52` | `170` | `170` | `170` |
+| Role | | | PID echo | Value MSB | Value LSB | | | |
+
+- **CAN ID**: `2024` (ECU response address `0x7E8`)
+- **PID**: `12`
+- **Index**: `2`
+- **Start Bit**: `24` (start of byte 3)
+- **Bit Length**: `16` (bytes 3 and 4)
+- **Expression**: `V * 0.25`
+
+Raw value = `(18 × 256) + 52` = `4660`. Engine speed = `4660 × 0.25` = **1165 RPM**.
+
+Published output:
+
+```json
+{"EngineSpeed": 1165.0}
+```
+
+### Example — vehicle speed (PID 13 / `0x0D`)
+
+| Field | Byte 0 | Byte 1 | Byte 2 | Byte 3 | Byte 4 | Byte 5 | Byte 6 | Byte 7 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Vehicle Speed | `4` | `65` | **`13`** | `23` | `170` | `170` | `170` | `170` |
+| Role | | | PID echo | Value | | | | |
+
+- **CAN ID**: `2024`
+- **PID**: `13`
+- **Index**: `2`
+- **Start Bit**: `24`
+- **Bit Length**: `8`
+- **Expression**: `V`
+
+Published output:
+
+```json
+{"VehicleSpeed": 23.0}
+```
+
+### Example — custom non-PID frame
+
+For raw CAN frames that are not OBD-II responses, set PID to `-1`. The extractor uses Start Bit and Bit Length directly.
+
+| Field | Byte 0 | Byte 1 | Byte 2 | Byte 3 | Byte 4 | Byte 5 | Byte 6 | Byte 7 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Custom ID | `170` | `170` | `35` | `16` | `170` | `170` | `170` | `170` |
+| Role | | | Value MSB | Value LSB | | | | |
+
+- **CAN ID**: `356`
+- **PID**: `-1`
+- **Start Bit**: `16` (start of byte 2)
+- **Bit Length**: `16`
+- **Expression**: `(V + 10) / 2.5`
+
+Raw value = `(35 × 256) + 16` = `8976`. Result = `(8976 + 10) / 2.5` = **3594.4**.
+
+Published output:
+
+```json
+{"CustomID": 3594.4}
+```
+
+<Tip>
+  For multi-byte values that don't require Start Bit / Bit Length configuration, the [Automate feature](/config/automate/usage) and its [expression syntax](/api/expression-syntax) offer a more ergonomic `[B0:B1]` notation.
+</Tip>

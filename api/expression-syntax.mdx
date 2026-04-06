@@ -1,0 +1,260 @@
+---
+title: "Expression Syntax"
+description: "Reference for the expression language used in Automate Custom PIDs and MQTT CAN-to-JSON filters to convert raw CAN and OBD-II response bytes into meaningful values."
+---
+
+WiCAN uses a lightweight expression language to transform raw byte arrays returned by CAN frames or OBD-II responses into computed numeric values. Expressions are evaluated by the firmware's `expression_parser` and support byte access, multi-byte ranges, arithmetic, bitwise operations, and bit shifting.
+
+Expressions are used in two places:
+
+- **Automate → Custom PIDs**: The `Expression` field applied to bytes returned by a PID response
+- **MQTT CAN-to-JSON filtering**: The `Expression` field applied to the extracted bit range value (represented as `V`)
+
+<Info>
+  In Automate Custom PIDs, expressions reference bytes directly (`B0`, `B1`, etc.). In MQTT CAN-to-JSON filtering, Start Bit and Bit Length extract a raw value that is then available as `V` in the expression.
+</Info>
+
+---
+
+## Data access methods
+
+### Unsigned bytes — `B0`, `B1`, `B2`...
+
+References a single byte at the given zero-based index from the response data array as an unsigned 8-bit integer (0–255).
+
+```
+B0        → value of the first byte
+B1        → value of the second byte
+B7        → value of the eighth byte
+```
+
+### Signed bytes — `S0`, `S1`, `S2`...
+
+References a single byte at the given zero-based index as a signed 8-bit integer (−128 to 127). Use this when the byte represents a signed value such as a temperature offset.
+
+```
+S0        → first byte as signed int8
+S2        → third byte as signed int8
+```
+
+### Single bit — `B0:3`
+
+References one specific bit within a byte. Format: `Bx:y` where `x` is the byte index and `y` is the bit position within that byte (0 = MSB, 7 = LSB on most implementations).
+
+```
+B0:3      → bit 3 of byte 0 (returns 0 or 1)
+B1:0      → most significant bit of byte 1
+```
+
+### Unsigned byte range — `[B0:B1]`, `[B0:B3]`
+
+Combines consecutive bytes into a single unsigned multi-byte integer using big-endian byte order.
+
+```
+[B0:B1]   → 16-bit unsigned value from bytes 0 and 1
+[B0:B2]   → 24-bit unsigned value from bytes 0, 1, and 2
+[B0:B3]   → 32-bit unsigned value from bytes 0 through 3
+```
+
+The two byte indices define the inclusive range. The maximum range is 8 bytes.
+
+### Signed byte range — `[S0:S1]`
+
+Same as the unsigned byte range but sign-extends the result based on the MSB of the first byte. Use this for two's complement multi-byte signed values.
+
+```
+[S0:S1]   → 16-bit signed value from bytes 0 and 1
+[S0:S3]   → 32-bit signed value from bytes 0 through 3
+```
+
+---
+
+## Supported operators
+
+### Arithmetic
+
+| Operator | Operation | Example |
+| --- | --- | --- |
+| `+` | Addition | `B0 + B1` |
+| `-` | Subtraction | `B0 - 40` |
+| `*` | Multiplication | `B0 * 0.5` |
+| `/` | Division | `[B0:B1] / 4` |
+
+### Bitwise
+
+| Operator | Operation | Example |
+| --- | --- | --- |
+| `&` | Bitwise AND | `B0 & 0x0F` |
+| `\|` | Bitwise OR | `B0 \| B1` |
+| `^` | Bitwise XOR | `B0 ^ 0xFF` |
+
+### Bit shifting
+
+| Operator | Operation | Example |
+| --- | --- | --- |
+| `<<` | Left shift | `B0 << 8` |
+| `>>` | Right shift | `(B0 & 0xF0) >> 4` |
+
+### Grouping
+
+Parentheses control evaluation order and override standard operator precedence:
+
+```
+(B0 + B1) * 4
+(V + 10) / 2.5
+(B0 & 0xF0) >> 4
+```
+
+Standard mathematical operator precedence applies: `*` and `/` before `+` and `-`. Use parentheses whenever the intended grouping differs from left-to-right evaluation.
+
+---
+
+## Common expression patterns
+
+<AccordionGroup>
+  <Accordion title="Simple byte extraction">
+    Return the raw value of a single byte without any transformation:
+
+    ```
+    B0
+    ```
+
+    Use this for PID values that directly encode the quantity without scaling (e.g., vehicle speed in km/h).
+  </Accordion>
+
+  <Accordion title="Temperature offset">
+    Many OBD-II temperature PIDs use a −40 °C offset so that the byte value `0` maps to −40 °C:
+
+    ```
+    B0 - 40
+    ```
+
+    Examples: engine coolant temperature (PID `0x05`), intake air temperature (PID `0x0F`), ambient air temperature (PID `0x46`).
+  </Accordion>
+
+  <Accordion title="16-bit value">
+    Combine two bytes into a 16-bit unsigned integer using big-endian order:
+
+    ```
+    [B0:B1]
+    ```
+
+    The result equals `(B0 × 256) + B1`.
+  </Accordion>
+
+  <Accordion title="32-bit value">
+    Combine four bytes into a 32-bit unsigned integer:
+
+    ```
+    [B0:B3]
+    ```
+
+    The result equals `(B0 × 16777216) + (B1 × 65536) + (B2 × 256) + B3`. Used for odometer readings and other large counters.
+  </Accordion>
+
+  <Accordion title="Scaled 16-bit value (RPM)">
+    Engine RPM (PID `0x0C`) is stored as a 16-bit value scaled by ¼:
+
+    ```
+    [B0:B1] / 4
+    ```
+
+    The raw 16-bit value divided by 4 gives RPM. Range: 0–16,383.75 RPM.
+  </Accordion>
+
+  <Accordion title="Percentage from 8-bit range">
+    Convert a 0–255 byte to a 0–100% percentage:
+
+    ```
+    B0 * 100 / 255
+    ```
+
+    Used for engine load (PID `0x04`), fuel level (PID `0x2F`), throttle position (PID `0x11`), and others.
+  </Accordion>
+
+  <Accordion title="Upper nibble extraction">
+    Extract the high 4 bits of a byte (upper nibble):
+
+    ```
+    (B0 & 0xF0) >> 4
+    ```
+
+    Masks the upper 4 bits with `0xF0`, then shifts right by 4 positions to produce a value in the range 0–15.
+  </Accordion>
+
+  <Accordion title="Lower nibble extraction">
+    Extract the low 4 bits of a byte (lower nibble):
+
+    ```
+    B0 & 0x0F
+    ```
+
+    Masks away the upper 4 bits. Result is in the range 0–15.
+  </Accordion>
+
+  <Accordion title="Single bit flag">
+    Read one bit as a boolean 0/1 flag:
+
+    ```
+    B0:3
+    ```
+
+    Returns `1` if bit 3 of byte 0 is set, `0` otherwise. Useful for status flags, fault indicators, and binary sensor values.
+  </Accordion>
+
+  <Accordion title="Scaled voltage (mV to V)">
+    Convert a raw millivolt reading stored as a 16-bit value to volts:
+
+    ```
+    [B0:B1] / 1000
+    ```
+
+    Example: battery pack voltage from a custom PID where the ECU reports in millivolts.
+  </Accordion>
+
+  <Accordion title="Scaled SOC (10x encoding)">
+    State of charge values are sometimes stored as tenths of a percent:
+
+    ```
+    [B0:B1] / 10
+    ```
+
+    Example: a raw value of `654` represents `65.4%`.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Standard OBD-II expression reference
+
+These expressions cover the most commonly requested Mode 01 PIDs. The byte indices (`B0`, `B1`, etc.) refer to positions within the PID data bytes only — not the full CAN frame. In an OBD-II response frame, data bytes start at byte 3 of the CAN payload (after the length, response marker, and PID echo bytes).
+
+<Note>
+  When using Automate Custom PIDs, the expression bytes correspond to the data portion of the ELM327 response string. When using MQTT filtering with Start Bit / Bit Length, use `V` instead of byte references and apply the same scaling formula.
+</Note>
+
+| Parameter | PID (`hex`) | Expression | Unit | Notes |
+| --- | --- | --- | --- | --- |
+| Engine RPM | `0x0C` | `[B0:B1] / 4` | RPM | 16-bit, quarter-RPM resolution |
+| Vehicle speed | `0x0D` | `B0` | km/h | Single byte, 1 km/h resolution |
+| Engine load | `0x04` | `B0 * 100 / 255` | % | Calculated engine load value |
+| Coolant temperature | `0x05` | `B0 - 40` | °C | −40 °C offset |
+| Intake air temperature | `0x0F` | `B0 - 40` | °C | −40 °C offset |
+| Ambient air temperature | `0x46` | `B0 - 40` | °C | −40 °C offset |
+| Throttle position | `0x11` | `B0 * 100 / 255` | % | |
+| Fuel level | `0x2F` | `B0 * 100 / 255` | % | |
+| Short-term fuel trim | `0x06` | `B0 * 100 / 128 - 100` | % | Signed percentage |
+| Battery voltage (HV) | custom | `[B0:B1] / 1000` | V | Manufacturer-specific; millivolt encoding |
+| Battery SOC | custom | `[B0:B1] / 10` | % | Manufacturer-specific; 0.1% resolution |
+| Odometer | `0xA6` | `[B0:B3]` | km | 32-bit unsigned |
+
+---
+
+## Notes
+
+- **Byte indices are zero-based.** `B0` is the first byte, `B1` is the second, and so on.
+- **Maximum range width is 8 bytes.** `[B0:B7]` is the widest valid range.
+- **Standard operator precedence applies.** Multiplication and division are evaluated before addition and subtraction. Use parentheses `()` to control evaluation order explicitly.
+- **Both integer and floating-point calculations are supported.** Division may produce fractional results. The firmware evaluates all expressions as `double` precision floating-point internally.
+- **Hexadecimal literals are supported.** Use `0x` prefix for hex constants in bitwise operations (e.g., `B0 & 0x0F`).
+- **`V` is only available in MQTT CAN-to-JSON filter expressions.** In Automate Custom PID expressions, use `B0`, `B1`, etc. directly.

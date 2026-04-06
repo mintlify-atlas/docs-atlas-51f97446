@@ -1,0 +1,240 @@
+---
+title: "Supported parameters"
+description: "Complete reference for all named parameters recognized by WiCAN vehicle profiles, including units, device classes, and value ranges."
+---
+
+## Overview
+
+WiCAN vehicle profiles use named parameters to identify what each PID expression computes. These names have two purposes:
+
+1. They appear as attribute names in MQTT output and HTTP JSON responses.
+2. They are recognized by the [Home Assistant integration](/home-assistant/integration-setup), which uses the `class` and `unit` metadata to auto-configure entities with the correct device class, unit of measurement, and display behavior.
+
+When writing a [custom PID](/config/automate/usage#custom-pids) or [vehicle profile](/config/automate/vehicle-profiles), use a name from the table below where a matching parameter exists. This ensures correct integration with Home Assistant and consistent output across the ecosystem.
+
+<Info>
+For standard OBD-II parameters available without a vehicle profile, see [Standard PIDs](/config/automate/usage#standard-pids) and use the **Scan PIDs** button in the Automate tab.
+</Info>
+
+## How parameters map to expressions
+
+Each parameter is computed from the raw bytes returned by an ECU PID request. The `expression` field in a vehicle profile or custom PID defines how to map those bytes to the final value.
+
+For example, to extract State of Charge from a two-byte response:
+
+```json
+{
+  "name": "SOC",
+  "expression": "[B0:B1] / 10",
+  "unit": "%",
+  "class": "battery",
+  "min": "0",
+  "max": "100"
+}
+```
+
+Here `[B0:B1]` reads bytes 0 and 1 as a 16-bit unsigned integer, then divides by 10 to get a percentage. See the [expression format reference](/config/automate/usage#expression-format) for the full syntax.
+
+### Common expression patterns by category
+
+| Category | Expression | Example parameter |
+|---|---|---|
+| Direct byte value | `B0` | `SPEED` (km/h) |
+| Temperature offset | `B0 - 40` | `COOLANT_TMP`, `BATT_TEMP` |
+| Percentage (0–255 scale) | `B0 * 100 / 255` | `FUEL`, `THROTTLE` |
+| 16-bit integer ÷ 10 | `[B0:B1] / 10` | `SOC`, `HV_V`, `HV_A` |
+| 16-bit integer ÷ 4 | `[B0:B1] / 4` | `ENGINE_RPM` |
+| 16-bit millivolts to V | `[B0:B1] / 1000` | `LV_V` |
+| 32-bit integer | `[B0:B3]` | `ODOMETER` |
+| Signed current encoding | `(65536 - [B0:B1]) / 10` | `HV_A` (some EVs) |
+
+## Standard OBD-II parameters
+
+The following parameters are available on most vehicles via standard OBD-II (SAE J1979). They do not require a vehicle-specific profile when using the Standard PIDs section of the Automate tab.
+
+| Parameter | Description | Unit | Class |
+|---|---|---|---|
+| `COOLANT_TMP` | Coolant Temperature | °C | temperature |
+| `ENGINE_RPM` | Engine RPM | RPM | frequency |
+| `FUEL` | Fuel Level | % | — |
+| `FUEL_L` | Fuel Level (Liters) | L | — |
+| `FUEL_PRESSURE` | Fuel Pressure | kPa | pressure |
+| `FUEL_RATE` | Fuel Rate | g/s | — |
+| `INTAKE_AIR_TMP` | Air Intake Temperature | °C | temperature |
+| `MAF` | Mass Airflow Sensor | g/s | — |
+| `ODOMETER` | Vehicle odometer | km | distance |
+| `SPEED` | Vehicle Speed | km/h | speed |
+| `STFT` | Short Term Fuel Trim | % | — |
+| `THROTTLE` | Throttle Position | % | — |
+
+## All supported parameters
+
+This table lists every named parameter recognized by WiCAN profiles.
+
+### Battery and charging (EV / PHEV)
+
+| Parameter | Description | Unit | Class | Range |
+|---|---|---|---|---|
+| `AC_C_C` | AC Charging Current | A | battery | — |
+| `AC_C_V` | AC Charging Voltage | V | battery | — |
+| `BATT_CAPACITY` | EV Battery Capacity | Ah | battery | — |
+| `BATT_TEMP` | Primary Battery Temperature | °C | temperature | −40 to 80 |
+| `CHARGER_DC_PWR` | Battery Charger DC Power | kW | power | — |
+| `CHARGING_R_A` | Requested Charge Current | A | current | 0 to 200 |
+| `HV_A` | High Voltage Battery Current | A | current | — |
+| `HV_AH_CHARGED` | Cumulative Charge Current | Ah | — | 0 to 1,000,000 |
+| `HV_AH_DISCHARGED` | Cumulative Discharge Current | Ah | — | 0 to 1,000,000 |
+| `HV_AV` | HV Battery Power Available | kW | battery | — |
+| `HV_CAPACITY` | Capacity of HV Battery | Ah | battery | — |
+| `HV_CAPACITY_KWH` | HV Battery Capacity | kWh | — | — |
+| `HV_CAPACITY_R` | HV Battery Capacity Remaining | kWh | — | — |
+| `HV_KWH_R` | Battery Remaining Energy | Wh | battery | 0 to 77,000 |
+| `HV_RELAY` | BMS Main Relay | — | binary_sensor | 0 / 1 |
+| `HV_V` | High Voltage Battery Voltage | V | voltage | 200 to 480 |
+| `HV_W` | High Voltage Power | W | power | — |
+| `KWH_CHARGED` | Total kWh Charged (cumulative) | kWh | battery | 0 to 1,000,000 |
+| `KWH_DISCHARGED` | Total kWh Discharged (cumulative) | kWh | — | 0 to 1,000,000 |
+| `LV_A` | 12 V Battery Current | A | current | — |
+| `LV_SOC` | 12 V Battery State of Charge | % | battery | 0 to 100 |
+| `LV_V` | 12 V Battery Voltage | V | battery | — |
+| `SOC` | State of Charge | % | battery | 0 to 100 |
+| `SOC_D` | Displayed State of Charge | % | battery | — |
+| `SOC_MAX` | Maximum SOC | % | battery | — |
+| `SOC_MIN` | Minimum SOC | % | battery | — |
+| `SOH` | EV Battery State of Health | % | — | 0 to 105 |
+
+### Battery temperature sensors
+
+| Parameter | Description | Unit | Class | Range |
+|---|---|---|---|---|
+| `HV_T_1` – `HV_T_5` | HV Battery Temperature Sensors 1–5 | °C | temperature | — |
+| `HV_T_6` – `HV_T_16` | HV Battery Temperature Sensors 6–16 | °C | temperature | −40 to 80 |
+| `HV_T_A` | Average HV Battery Temperature | °C | temperature | — |
+| `HV_T_I` | HV Battery Inlet Temperature | °C | temperature | — |
+| `HV_T_MAX` | Highest HV Battery Temperature | °C | temperature | — |
+| `HV_T_MIN` | Lowest HV Battery Temperature | °C | temperature | — |
+| `HV_H_1` | Battery Heater 1 Temperature | °C | temperature | 0 to 80 |
+
+### Cell voltages
+
+WiCAN supports individual cell voltage monitoring for up to 192 cells. Parameters follow the naming pattern `HV_C_V_001` through `HV_C_V_192` (note: `HV_C_V_158` is not defined).
+
+| Parameter | Description | Unit | Class | Range |
+|---|---|---|---|---|
+| `HV_C_V_001` – `HV_C_V_192` | Cell Voltage (individual cells) | V | battery | 0 to 10 |
+| `HV_C_V_MAX` | Highest Cell Voltage | V | voltage | — |
+| `HV_C_V_MAX_NO` | Index of Highest Cell | — | — | — |
+| `HV_C_V_MIN` | Lowest Cell Voltage | V | voltage | — |
+| `HV_C_V_MIN_NO` | Index of Lowest Cell | — | — | — |
+| `HV_C_DIFF` | Cell Voltage Deviation | V | battery | 0 to 4 |
+| `HV_C_D_MAX` | Maximum Cell Deterioration | % | — | — |
+| `HV_C_D_MAX_NO` | Index of Most Deteriorated Cell | — | — | — |
+| `HV_C_D_MIN` | Minimum Cell Deterioration | % | — | — |
+| `HV_C_D_MIN_NO` | Index of Least Deteriorated Cell | — | — | — |
+| `CAPACITOR` | Inverter Capacitor Voltage | V | battery | 0 to 840 |
+| `RESISTANCE` | Isolation Resistance | kΩ | — | 0 to 1,000 |
+
+### Charging status (binary sensors)
+
+| Parameter | Description | Class |
+|---|---|---|
+| `AC_PLUG` | Normal Charge Port Connected | binary_sensor |
+| `CHARGER_CONNECTED` | EV Charger Connected | binary_sensor (plug) |
+| `CHARGING` | EV Charging Active | binary_sensor (battery_charging) |
+| `CHARGING_DC` | DC Charger Connected | binary_sensor (plug) |
+| `IGNITION` | BMS Ignition | binary_sensor |
+| `READY` | Vehicle Ready | binary_sensor |
+| `PARK_BRAKE` | Park Brake Applied | binary_sensor |
+
+### Drive and motor
+
+| Parameter | Description | Unit | Class | Range |
+|---|---|---|---|---|
+| `DM_F_RPM` | Drive Motor Speed (front) | RPM | — | −10,100 to 10,100 |
+| `DM_R_RPM` | Drive Motor Speed (rear) | RPM | — | −10,100 to 10,100 |
+| `DRIVE_MODE` | Drive Mode | — | — | — |
+| `GEAR` | Current Gear | — | — | — |
+| `PCM_Gear` | Transmission Gear | — | — | 0 to 100 |
+| `POWER_MAX` | Maximum Power Used | kW | power | — |
+| `REGEN_MAX` | Maximum Regen Achieved | kW | power | — |
+| `STEER_ANGLE` | Steering Angle | deg | — | −720 to 720 |
+
+### Engine and ICE
+
+| Parameter | Description | Unit | Class |
+|---|---|---|---|
+| `COOLANT_TMP` | Coolant Temperature | °C | temperature |
+| `ENGINE_OIL_PRES` | Engine Oil Pressure | kPa | pressure |
+| `ENGINE_OIL_TEMP` | Engine Oil Temperature | °C | temperature |
+| `ENGINE_RPM` | Engine RPM | RPM | frequency |
+| `FUEL` | Fuel Level | % | — |
+| `FUEL_L` | Fuel Level (Liters) | L | — |
+| `FUEL_PRESSURE` | Fuel Pressure | kPa | pressure |
+| `FUEL_PRESSURE_D` | Desired Fuel Pressure | kPa | pressure |
+| `FUEL_PUMP_DUTY` | Fuel Pump Duty Cycle | % | — |
+| `FUEL_RATE` | Fuel Rate | g/s | — |
+| `FUEL_SYS_STAT` | Fuel System Status | — | — |
+| `INTAKE_AIR_TMP` | Air Intake Temperature | °C | temperature |
+| `INTAKE_AIR_TEMP_2` | Air Intake Temperature 2 | °C | temperature |
+| `MAF` | Mass Airflow Sensor | g/s | — |
+| `OIL_LIFE` | Oil Life | % | — |
+| `OILCH_DIS` | Distance to Next Oil Change | km | distance |
+| `STFT` | Short Term Fuel Trim | % | — |
+| `THROTTLE` | Throttle Position | % | — |
+| `TRAN_F_TEMP` | Transmission Fluid Temperature | °C | temperature |
+| `ALT_DUTY` | Alternator Duty Cycle | % | — |
+
+### PCM (Powertrain Control Module)
+
+| Parameter | Description | Unit | Class | Range |
+|---|---|---|---|---|
+| `PCM_Desired_Boost` | Desired Boost Pressure | kPa | pressure | 0 to 1,000 |
+| `PCM_Fuel_Rate` | Fuel Consumption Rate | g/s | volume_flow_rate | 0 to 255 |
+| `PCM_Knock_Count` | Engine Knock Count | — | — | 0 to 255 |
+| `PCM_Learned_Octane_Ratio` | Learned Octane Ratio | % | percentage | −100 to 100 |
+| `PCM_Oil_Life` | Engine Oil Life Remaining | % | percentage | 0 to 100 |
+| `PCM_Transmission_Temp` | Transmission Temperature | °C | temperature | −40 to 200 |
+| `PCM_Wastegate` | Wastegate Position | % | percentage | 0 to 100 |
+| `WASTEGATE` | Wastegate Control Solenoid Valve | % | — | — |
+| `OCTANE_RATIO_L` | Learned Octane Ratio | % | — | — |
+
+### Vehicle dynamics and range
+
+| Parameter | Description | Unit | Class | Range |
+|---|---|---|---|---|
+| `ODOMETER` | Vehicle Odometer | km | distance | 0+ |
+| `ODOMETER_MI` | Vehicle Odometer (miles) | mi | distance | 0+ |
+| `RANGE` | Current Estimated Range | km | distance | — |
+| `SPEED` | Vehicle Speed | km/h | speed | — |
+| `DIST_SINCE_FULL_CHARGE` | Distance Traveled Since Last Full Charge | km | distance | 0+ |
+| `OP_TIME` | Operating Time | hours | — | 0 to 1,000,000 |
+
+### Tyre pressure and temperature
+
+| Parameter | Description | Unit | Class |
+|---|---|---|---|
+| `TYRE_P_FL` | Tyre Pressure Front Left | psi | pressure |
+| `TYRE_P_FR` | Tyre Pressure Front Right | psi | pressure |
+| `TYRE_P_RL` | Tyre Pressure Rear Left | psi | pressure |
+| `TYRE_P_RR` | Tyre Pressure Rear Right | psi | pressure |
+| `TYRE_T_FL` | Tyre Temperature Front Left | °C | temperature |
+| `TYRE_T_FR` | Tyre Temperature Front Right | °C | temperature |
+| `TYRE_T_RL` | Tyre Temperature Rear Left | °C | temperature |
+| `TYRE_T_RR` | Tyre Temperature Rear Right | °C | temperature |
+
+### Environment and cabin
+
+| Parameter | Description | Unit | Class |
+|---|---|---|---|
+| `CO2` | CO2 Concentration | ppm | carbon_dioxide |
+| `HUMIDITY` | Humidity | % | humidity |
+| `T_CAB` | Cabin Temperature | °C | temperature |
+| `TMP_A` | Ambient Temperature | °C | — |
+
+### Miscellaneous
+
+| Parameter | Description | Unit | Class | Range |
+|---|---|---|---|---|
+| `AC_COMP` | AC Compressor (ON/OFF) | — | — | — |
+| `AC_P` | AC Phases Connected | — | — | — |
+| `AIRBAG` | Airbag H/wire Duty | — | — | 50 to 100 |

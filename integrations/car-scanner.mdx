@@ -1,0 +1,123 @@
+---
+title: "Car Scanner"
+description: "Connect Car Scanner ELM OBD2 to WiCAN over WiFi or BLE to read live sensor data, diagnostic trouble codes, and export logs."
+---
+
+[Car Scanner ELM OBD2](https://www.carscanner.info/) is a vehicle diagnostic app that reads live sensor data, diagnostic trouble codes (DTCs), and freeze-frame data from your vehicle's ECU. WiCAN emulates the ELM327 protocol over a TCP WiFi connection, allowing Car Scanner to communicate with it as if it were a standard OBD-II adapter.
+
+Car Scanner is available for:
+
+<CardGroup cols={2}>
+  <Card title="iOS" icon="apple" href="https://apps.apple.com/us/app/car-scanner-elm-obd2/id1259933623">
+    Download from the Apple App Store.
+  </Card>
+  <Card title="Android" icon="android" href="https://play.google.com/store/apps/details?id=com.ovz.carscanner">
+    Download from Google Play.
+  </Card>
+</CardGroup>
+
+## Configure WiCAN
+
+<Steps>
+  <Step title="Plug in the WiCAN adapter">
+    Insert WiCAN into your vehicle's OBD-II port.
+  </Step>
+  <Step title="Connect to WiCAN">
+    Connect to the WiCAN WiFi access point (`WiCAN_xxxxxxxx`, default password `@meatpi#`), or connect WiCAN to your home network using AP+Station mode (see [WiFi configuration](/config/wifi)).
+  </Step>
+  <Step title="Open the web interface">
+    Navigate to `http://192.168.80.1` in your browser (or use the Station IP if WiCAN is on your home network). Go to the **Settings** tab.
+  </Step>
+  <Step title="Set the protocol">
+    Set **Protocol** to `ELM327` and **Port Type** to `TCP`.
+  </Step>
+  <Step title="Optimize performance (optional)">
+    Disable **MQTT** and **BLE** in the Settings tab if you are not using them. Reducing background activity improves ELM327 response times.
+  </Step>
+  <Step title="Save and reboot">
+    Click **Submit changes**. WiCAN will reboot with the new configuration.
+  </Step>
+</Steps>
+
+## Configure Car Scanner
+
+<Steps>
+  <Step title="Open adapter settings">
+    In Car Scanner, go to **Settings → Adapter OBDII ELM327 → WiFi**.
+  </Step>
+  <Step title="Enter the WiCAN address">
+    Fill in the IP address and port:
+
+    | Network | IP address | Port |
+    |---------|-----------|------|
+    | WiCAN access point | `192.168.80.1` | `3333` |
+    | Home network | Station IP (from **Status** tab) | `3333` |
+    | mDNS | `wican_xxxxxxxxxxxx.local` | `3333` |
+  </Step>
+  <Step title="Set the ECU protocol">
+    Scroll down in Car Scanner settings and go to **Advanced Settings → ECU Protocol**.
+
+    Select the protocol that matches your vehicle. WiCAN does not support automatic protocol detection — you must choose manually. Start with one of these common protocols:
+
+    | Protocol | Description |
+    |----------|-------------|
+    | `6) ISO 15765-4 CAN (11 bit ID, 500 Kbaud)` | Most modern petrol/diesel vehicles |
+    | `7) ISO 15765-4 CAN (29 bit ID, 500 Kbaud)` | Some vehicles with extended CAN IDs |
+    | `8) ISO 15765-4 CAN (11 bit ID, 250 Kbaud)` | Older CAN bus vehicles |
+    | `9) ISO 15765-4 CAN (29 bit ID, 250 Kbaud)` | Older vehicles with extended CAN IDs |
+
+    If none of these work, try other protocols in the list until one succeeds.
+  </Step>
+</Steps>
+
+## Connect to your vehicle
+
+<Steps>
+  <Step title="Press Connect">
+    Return to the Car Scanner main screen and press **Connect**.
+  </Step>
+  <Step title="Verify the connection">
+    A successful connection shows:
+    - **ELM Connection:** Connected
+    - **ECU Connection:** Connected
+  </Step>
+  <Step title="View available sensors">
+    Tap **All Sensors** to see which OBD-II parameters your vehicle supports.
+  </Step>
+</Steps>
+
+<Note>
+  WiCAN does not support automatic OBD-II protocol detection. If Car Scanner fails to connect to the ECU, try a different protocol in **Advanced Settings → ECU Protocol** until you find one that works for your vehicle.
+</Note>
+
+## Exporting logs
+
+Car Scanner can export OBD-II communication logs, which is useful for identifying the exact PID requests and responses your vehicle uses. These logs can then be used to configure WiCAN's automation features.
+
+<Steps>
+  <Step title="Connect to WiCAN">
+    Follow the setup steps above and confirm the ELM and ECU connections are active.
+  </Step>
+  <Step title="Open All Sensors">
+    Tap **All Sensors** to load the list of available parameters.
+  </Step>
+  <Step title="Select a sensor to log">
+    Tap the sensor you want to capture data from.
+  </Step>
+  <Step title="Let it log for a few seconds">
+    Allow the app to collect several readings so you have a meaningful sample.
+  </Step>
+  <Step title="Note the current value">
+    While the sensor is logging, note its current reading. This gives you a reference point when reviewing the exported data.
+  </Step>
+  <Step title="Disconnect WiCAN">
+    Remove WiCAN from the OBD-II port immediately after logging. This ensures the last recorded value in the log corresponds to the sensor reading you observed.
+  </Step>
+  <Step title="Export the log">
+    In Car Scanner, go to **Settings → Adapter OBDII ELM327**, scroll to the bottom, and tap **Export Logs**. The log file will be saved to your device.
+  </Step>
+</Steps>
+
+<Tip>
+  Exported logs contain the raw ELM327 command and response pairs. You can use these to find the PID bytes your vehicle uses for a specific sensor, which you can then add to WiCAN's automation configuration.
+</Tip>

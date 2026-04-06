@@ -1,0 +1,114 @@
+{
+  "projectType": "general",
+  "projectName": "WiCAN Firmware",
+  "projectDescription": "Open-source ESP32-C3 firmware for the WiCAN OBD-II and USB CAN bus adapters, enabling WiFi/BLE vehicle diagnostics, MQTT telemetry, ELM327 protocol emulation, and Home Assistant integration.",
+  "theme": "palm",
+  "primaryColor": "#4055b5",
+  "lightColor": "#9cacdc",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "hardware-overview",
+              "firmware-update"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "config/wifi",
+              "config/can",
+              "config/sleep-mode",
+              "config/factory-reset"
+            ]
+          },
+          {
+            "group": "Automate & OBD",
+            "pages": [
+              "config/automate/usage",
+              "config/automate/supported-vehicles",
+              "config/automate/vehicle-profiles",
+              "config/automate/supported-parameters"
+            ]
+          },
+          {
+            "group": "Connectivity & Security",
+            "pages": [
+              "config/mqtt",
+              "config/https",
+              "config/vpn-wireguard",
+              "config/abrp"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Integrations",
+        "groups": [
+          {
+            "group": "Home Assistant",
+            "pages": [
+              "home-assistant/overview",
+              "home-assistant/integration-setup",
+              "home-assistant/mqtt"
+            ]
+          },
+          {
+            "group": "CAN Tools",
+            "pages": [
+              "integrations/socketcan",
+              "integrations/savvycan",
+              "integrations/busmaster",
+              "integrations/realdash",
+              "integrations/car-scanner"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "api/mqtt-api",
+              "api/http-api",
+              "api/expression-syntax"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "WiFi (AP and Station mode) and BLE connectivity",
+    "ELM327 v1.5/v2.3 protocol emulation over TCP/BLE",
+    "MQTT CAN bus telemetry with JSON frame format",
+    "AutoPID: periodic OBD-II PID polling with vehicle profiles",
+    "Home Assistant integration via HTTP (no MQTT required)",
+    "Sleep mode with voltage-based wake/sleep and battery alerts",
+    "SocketCAN / SLCAN protocol support",
+    "WireGuard VPN for secure remote access (WiCAN PRO)",
+    "HTTPS destination for custom telemetry endpoints and ABRP",
+    "OTA and USB firmware updates",
+    "CAN-to-JSON filtering and expression-based data transformation",
+    "SD card logging and USB host interface (WiCAN PRO)",
+    "Supports RealDash, SavvyCAN, BUSmaster, Car Scanner apps"
+  ],
+  "publicApiSurface": [
+    "MQTT topic: wican/{device_id}/status — online/offline status",
+    "MQTT topic: wican/{device_id}/can/tx — transmit CAN frames (JSON)",
+    "MQTT topic: wican/{device_id}/can/rx — receive CAN frames (JSON)",
+    "HTTP GET /autopid_data — fetch latest AutoPID OBD data",
+    "HTTP web UI at http://192.168.80.1 or device IP",
+    "ELM327 command set over TCP port or BLE GATT",
+    "SLCAN (Serial-line CAN) protocol over TCP/USB",
+    "RealDash CAN protocol on OBD PIN 6/14",
+    "WireGuard VPN configuration and tunnel management",
+    "HTTPS POST destination for custom telemetry (JSON or ABRP form-encoded)",
+    "Vehicle profile JSON format for AutoPID custom/vendor PIDs",
+    "Expression syntax: B0, S0, [B0:B1], arithmetic/bitwise operators"
+  ]
+}

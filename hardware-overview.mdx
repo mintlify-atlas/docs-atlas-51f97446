@@ -1,0 +1,133 @@
+---
+title: "Hardware overview"
+description: "WiCAN hardware variants, pinouts, supported CAN rates, and protocol support."
+---
+
+## Variants
+
+WiCAN is available in three hardware variants. Choose the one that matches your use case.
+
+### WiCAN OBD-II
+
+An ESP32-C3-based CAN bus adapter in an OBD-II plug form factor. Connects directly to the vehicle's OBD-II port and is powered from PIN 16 (battery voltage). Communicates over WiFi and BLE.
+
+- ELM327 v1.5 emulation
+- WiFi (AP and station mode) and BLE
+- SocketCAN / slcan support
+- RealDash support via "realdash 66" protocol
+- MQTT telemetry and AutoPID
+- Sleep mode (drops below 1 mA when triggered by low voltage)
+- CAN2.0A/B up to 1 Mbit/s on PIN 6 (CANH) and PIN 14 (CANL)
+
+### WiCAN USB
+
+The USB form factor shares nearly all firmware features with WiCAN OBD-II but is packaged for bench and remote use rather than a vehicle port.
+
+- Same ESP32-C3 hardware and firmware as WiCAN OBD-II
+- **Extended voltage range up to 36 V** — suitable for 12 V and 24 V truck setups
+- Powered via USB or screw-terminal connector
+- Can operate as a USB-to-CAN adapter when WiFi is not needed
+- Screw-terminal connector for CANH, CANL, power, and TR (termination)
+- Diode protection on the USB port
+
+### WiCAN PRO
+
+WiCAN PRO uses a dedicated advanced OBD chip instead of a bare ESP32, which enables compatibility with a much wider range of vehicle protocols. It also adds USB host capability, an SD card slot, WireGuard VPN, HTTPS, MQTTS, and Nabu Casa support for Home Assistant.
+
+<Note>
+  WiCAN PRO is the recommended variant. The original WiCAN hardware has memory limitations that restrict future firmware updates. WiCAN PRO does not have this constraint.
+</Note>
+
+## Variant comparison
+
+| Feature | WiCAN PRO | WiCAN |
+|---|---|---|
+| **Connectivity** | | |
+| Interface | WiFi / BLE / USB | WiFi / BLE |
+| WireGuard VPN | Yes | No |
+| HTTPS | Yes | HTTP only |
+| MQTTS (secure MQTT) | Yes | MQTT only |
+| Home Assistant Nabu Casa | Yes | No |
+| **Hardware** | | |
+| USB host interface | Yes | No |
+| Dual USB-to-serial | Yes | No |
+| Button | Yes | No |
+| SD card logging | Yes | No |
+| **Instruction sets** | | |
+| ELM327 | v2.3 | v1.5 emulation |
+| ELM329 | v2.2 | No |
+| STN instructions | Yes | No |
+| **Protocols (OBD bus)** | | |
+| Standard CAN (PIN 6/14) | Yes | Yes |
+| Medium speed MS-CAN (PIN 3/11) | Yes | No |
+| GM high-speed J1962 (PIN 12/13) | Yes | No |
+| Single wire CAN GMLAN (PIN 1) | Yes | No |
+| SAE J1850-PWM | Yes | No |
+| SAE J1850-VPW | Yes | No |
+| ISO 9141-2 | Yes | No |
+| ISO 14230-4 slow/fast | Yes | No |
+| **Software** | | |
+| RealDash CAN (PIN 6/14) | Yes | Yes |
+| slcan / SocketCAN (PIN 6/14) | Yes | Yes |
+| AutoPID / MQTT telemetry | Yes | Yes |
+| Sleep mode | Yes | Yes |
+| Improved web interface | Yes | No |
+
+## OBD-II pinout (WiCAN OBD-II and WiCAN PRO)
+
+The OBD-II connector uses the standard J1962 Type A pinout. WiCAN uses the following pins:
+
+| PIN | Signal | Description |
+|---|---|---|
+| 4 | Chassis GND | Chassis ground |
+| 5 | Signal GND | Signal ground |
+| 6 | CANH | CAN bus high (standard high-speed CAN) |
+| 14 | CANL | CAN bus low (standard high-speed CAN) |
+| 16 | Battery+ | 12 V supply from vehicle battery |
+
+WiCAN PRO also accesses additional pins for extended protocol support:
+
+| PIN | Signal | Protocol |
+|---|---|---|
+| 1 | SW-CAN | Single Wire CAN (GMLAN) |
+| 3 | MS-CANH | Medium speed CAN high |
+| 11 | MS-CANL | Medium speed CAN low |
+| 12 | GM-CANH | GM high-speed J1962 CAN high |
+| 13 | GM-CANL | GM high-speed J1962 CAN low |
+
+## USB pinout (WiCAN USB)
+
+The WiCAN USB screw-terminal connector exposes:
+
+| Pin | Signal | Description |
+|---|---|---|
+| CANH | CAN high | Connect to bus CANH |
+| CANL | CAN low | Connect to bus CANL |
+| TR | Termination | Connect to CANH to activate the 120 Ω termination resistor |
+| 12V / GND | Power | External power supply (up to 36 V) |
+
+<Note>
+  To activate the built-in 120 Ω termination resistor, connect the **TR** pin to **CANH**. The other end of the resistor is connected to CANL internally. Use this when WiCAN USB is at either end of a CAN bus segment.
+</Note>
+
+## Supported CAN bit rates
+
+Both WiCAN and WiCAN PRO support the following CAN bit rates on the standard CAN interface (PIN 6/14):
+
+| Rate | Common use |
+|---|---|
+| 5 Kbit/s | Low-speed legacy bus |
+| 10 Kbit/s | — |
+| 20 Kbit/s | — |
+| 25 Kbit/s | — |
+| 50 Kbit/s | — |
+| 100 Kbit/s | — |
+| 125 Kbit/s | ISO 11898 default |
+| 250 Kbit/s | SAE J1939 |
+| 500 Kbit/s | Most modern vehicles |
+| 800 Kbit/s | — |
+| 1000 Kbit/s (1 Mbit/s) | High-speed automotive |
+
+The CAN controller supports **CAN 2.0A** (11-bit IDs) and **CAN 2.0B** (29-bit IDs) frames at all rates up to 1 Mbit/s.
+
+Set the bit rate in the **Settings** tab under **CAN Bitrate** before connecting to a bus.

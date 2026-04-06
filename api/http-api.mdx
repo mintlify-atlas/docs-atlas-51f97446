@@ -1,0 +1,302 @@
+---
+title: "HTTP API"
+description: "HTTP endpoints and web UI provided by WiCAN for configuration, live data access, and outbound HTTPS telemetry delivery."
+---
+
+WiCAN exposes a built-in HTTP server for device configuration and live data polling. On WiCAN PRO, the device can also push telemetry to external HTTPS endpoints. This page documents the available endpoints, the web UI structure, and the HTTPS destination feature.
+
+<Info>
+  The HTTP server is available whenever WiCAN is connected to a WiFi network in STA (station) mode, or directly via its AP (access point) when no STA connection is configured.
+</Info>
+
+---
+
+## Accessing the device
+
+Connect to the device web UI in a browser using its IP address or mDNS hostname:
+
+- **IP address**: `http://192.168.x.x` (check your router's DHCP table or the device status page)
+- **mDNS hostname**: `http://wican_xxxxxxxxxxxx.local` — where `xxxxxxxxxxxx` is the 12-character device ID
+
+<Note>
+  mDNS (`*.local`) hostname resolution requires a compatible mDNS resolver. This works out of the box on macOS and most Linux systems. On Windows, install Bonjour or use the IP address directly.
+</Note>
+
+---
+
+## GET /autopid_data
+
+Returns the latest decoded OBD-II and custom PID values collected by the Automate (AutoPID) feature as a JSON object.
+
+<Info>
+  This endpoint is only populated when the CAN protocol in **Settings → CAN** is set to `AutoPID` and at least one PID is configured and enabled in the **Automate** tab.
+</Info>
+
+### Request
+
+```
+GET http://<device-ip>/autopid_data
+```
+
+No query parameters or authentication required.
+
+### Response
+
+`Content-Type: application/json`
+
+The response is a flat JSON object where each key is a PID parameter name and the value is the last calculated result.
+
+```json
+{
+  "ENGINE_RPM": 1450,
+  "SPEED": 0,
+  "COOLANT_TMP": 87,
+  "THROTTLE": 12.5,
+  "FUEL": 62.35,
+  "FUEL_PRESSURE": 300,
+  "INTAKE_AIR_TMP": 23,
+  "MAF": 6.4,
+  "STFT": -0.78,
+  "ODOMETER": 54321,
+  "TestCustom": 127.5
+}
+```
+
+<ResponseField name="*" type="number">
+  Each key is a parameter name defined in the Automate configuration. The value is the result of the configured expression applied to the last received response bytes. Values are floating-point numbers.
+</ResponseField>
+
+### Use cases
+
+- **Polling from scripts**: Query `/autopid_data` at regular intervals from Python, shell scripts, or Node.js without needing an MQTT broker.
+- **Home dashboards**: Feed data into Grafana, Home Assistant REST sensors, or custom web dashboards.
+- **Debugging**: Verify that PID expressions produce the expected output before setting up MQTT or HTTPS destinations.
+
+<Tip>
+  If MQTT is enabled and configured, responses are also published to the configured MQTT topic automatically. Use `/autopid_data` as a lightweight alternative when MQTT is not available.
+</Tip>
+
+---
+
+## Web UI
+
+The web UI is the primary interface for configuring the device. It is served at the device root path and requires no authentication by default.
+
+```
+http://<device-ip>/
+```
+
+### UI tabs
+
+<AccordionGroup>
+  <Accordion title="Status">
+    Displays real-time device information:
+
+    - Device ID and firmware version
+    - WiFi connection status and IP address
+    - CAN bus status (active, bitrate, protocol)
+    - ECU connection state
+    - Battery voltage (where applicable)
+  </Accordion>
+
+  <Accordion title="Settings">
+    Configure all device parameters:
+
+    - **WiFi**: Station SSID/password, AP channel, auto-disable timer
+    - **CAN**: Bitrate (5K–1000K), mode (Normal/Silent), protocol (SLCAN, RealDash, SavvyCAN, ELM327/OBD, AutoPID)
+    - **MQTT**: Broker URL, port, credentials, TX/RX topic names, CAN filter JSON
+    - **BLE**: Bluetooth passkey, enable/disable
+    - **Sleep**: Sleep voltage threshold, wakeup voltage, sleep/wakeup timers
+    - **Battery Alert**: Alert voltage, notification URL/topic
+
+    Submit all changes with the **Submit** button at the bottom of the page. The device restarts to apply changes.
+  </Accordion>
+
+  <Accordion title="Automate">
+    Configure the AutoPID polling system:
+
+    - **Grouping**: Enable to merge all PID outputs into a single JSON object
+    - **Destination Type**: Default (HTTP endpoint) or MQTT topic
+    - **Cycle Time**: Global polling interval in milliseconds
+    - **Standard PIDs**: Enable SAE J1979 Mode 01 PIDs; select ECU protocol; scan or manually add PIDs
+    - **Vehicle Specific**: Select a vehicle model profile for manufacturer-specific PIDs
+    - **Custom PIDs**: Define arbitrary OBD-II or CAN requests with name, init command, expression, min/max, period, and destination
+    - **Destinations**: Add MQTT, HTTPS POST, or ABRP API destinations (WiCAN PRO)
+
+    See the [Automate usage guide](/config/automate/usage) for full configuration details.
+  </Accordion>
+
+  <Accordion title="About / System">
+    Device information and maintenance:
+
+    - Hardware version and serial number
+    - Firmware version and git tag
+    - **OTA Update**: Upload a new firmware binary over-the-air
+    - **Certificates** (WiCAN PRO): Upload and manage CA certificates and client certificates for HTTPS destinations
+    - **Factory Reset**: Restore all settings to defaults
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  There is no REST API for reading or writing device configuration programmatically. All configuration must be done through the web UI. Settings are stored in non-volatile flash and persist across reboots.
+</Warning>
+
+---
+
+## HTTPS destination (WiCAN PRO)
+
+WiCAN PRO can push grouped telemetry to one or more external HTTPS endpoints. The device initiates outbound TLS connections — no inbound ports need to be opened.
+
+<Note>
+  This feature requires **WiCAN PRO** hardware and that **Grouping** is enabled in the Automate tab.
+</Note>
+
+### How it works
+
+When a destination is configured and enabled:
+
+1. WiCAN collects the latest values from all active PIDs (standard, vehicle-specific, and custom).
+2. It merges them into a single JSON object under the `autopid_data` key.
+3. It sends an HTTPS `POST` request to the configured URL at the configured cycle interval.
+
+Multiple HTTPS destinations can run concurrently alongside MQTT and other destination types.
+
+### Request format
+
+```
+POST https://your-endpoint.example.com/ingest HTTP/1.1
+Host: your-endpoint.example.com
+Content-Type: application/json
+Authorization: Bearer <token>   (if configured)
+User-Agent: ESP32 WiCAN/1.0
+```
+
+### First POST after boot
+
+The initial POST after each device boot includes a `config` block (parameter metadata) and a `status` block (device information) in addition to telemetry data:
+
+```json
+{
+  "autopid_data": {
+    "TestCustom": 127.5
+  },
+  "config": {
+    "ENGINE_RPM": { "class": "frequency", "unit": "RPM" },
+    "SPEED": { "class": "speed", "unit": "km/h" },
+    "COOLANT_TMP": { "class": "temperature", "unit": "°C" },
+    "FUEL": { "class": "none", "unit": "%" },
+    "THROTTLE": { "class": "none", "unit": "%" },
+    "TestCustom": { "class": "none", "unit": "none" }
+  },
+  "status": {
+    "device_id": "a1b2c3d4e5f6",
+    "fw_version": "4.40",
+    "hw_version": "WiCAN-OBD-PRO",
+    "ecu_status": "online",
+    "sta_status": "Connected",
+    "sta_ip": "192.168.0.146",
+    "wifi_mode": "BLEStation"
+  }
+}
+```
+
+<Warning>
+  The `status` block in the first POST may contain sensitive values such as WiFi credentials, MQTT usernames, and tokens. Protect your ingest endpoint and avoid logging the full first payload in production.
+</Warning>
+
+### Subsequent periodic POSTs
+
+After the first boot POST, all subsequent requests contain only the `autopid_data` block:
+
+```json
+{
+  "autopid_data": {
+    "ENGINE_RPM": 4147,
+    "SPEED": 0,
+    "COOLANT_TMP": 155,
+    "FUEL": 62.35,
+    "FUEL_PRESSURE": 300,
+    "INTAKE_AIR_TMP": -40,
+    "MAF": 34.81,
+    "STFT": -100,
+    "THROTTLE": 33.73,
+    "TestCustom": 127.5
+  }
+}
+```
+
+### Response fields
+
+<ResponseField name="autopid_data" type="object" required>
+  Flat object containing all enabled parameter names as keys and their latest calculated values as floating-point numbers.
+</ResponseField>
+
+<ResponseField name="config" type="object">
+  Present only on the first POST after a cold boot. Maps each parameter name to its metadata.
+
+  <Expandable title="config entry properties">
+    <ResponseField name="class" type="string">
+      Home Assistant device class hint (e.g., `"speed"`, `"temperature"`, `"frequency"`, `"pressure"`, `"distance"`, `"none"`).
+    </ResponseField>
+    <ResponseField name="unit" type="string">
+      Unit of measurement string (e.g., `"km/h"`, `"°C"`, `"RPM"`, `"%"`).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="status" type="object">
+  Present only on the first POST after a cold boot. Contains device identification and connection state fields.
+</ResponseField>
+
+### Destination configuration fields
+
+| Field | Description |
+| --- | --- |
+| **Cycle (ms)** | Interval between POSTs. Minimum `1000` ms. Set to `0` for event-only mode if supported. |
+| **URL** | Full HTTPS URL including path. Must start with `https://`. |
+| **Auth** | `None` or `Bearer Token`. Adds `Authorization: Bearer <token>` when set. |
+| **Query Params** | Optional key/value pairs appended to the URL as query string parameters. |
+| **Cert Set** | TLS trust configuration. `default` uses the embedded public CA bundle. Custom sets are created under **System → Certificates**. |
+| **Enabled** | Toggle the destination on or off without deleting it. |
+
+### Authentication
+
+<Tabs>
+  <Tab title="No auth">
+    Leave Auth set to `None`. No `Authorization` header is sent.
+  </Tab>
+  <Tab title="Bearer token">
+    Select `Bearer Token` and enter the token value. WiCAN automatically adds the header:
+
+    ```
+    Authorization: Bearer <your-token>
+    ```
+  </Tab>
+</Tabs>
+
+### Certificate management
+
+Three TLS trust options are available:
+
+- **`default`**: Uses the embedded public CA bundle (Let's Encrypt, DigiCert, GlobalSign, and others). Suitable for most publicly trusted endpoints.
+- **Custom set**: Upload your own CA certificate (and optionally a client certificate and key for mutual TLS) under **System → Certificates**. Select the named set in the destination configuration.
+
+<Tip>
+  For private PKI or self-signed certificates, create a custom cert set in **System → Certificates** before adding the HTTPS destination. If the wrong cert set is selected, all POSTs will fail with TLS certificate verification errors.
+</Tip>
+
+---
+
+## ABRP API destination (WiCAN PRO)
+
+A dedicated destination type maps WiCAN telemetry fields to A Better Routeplanner (ABRP) format and sends a `application/x-www-form-urlencoded` POST to ABRP's telemetry endpoint.
+
+Requires an ABRP API token from **ABRP Settings → Live Data → OBD**. Configure it under **Automate → Add Destination → Type: ABRP API**.
+
+Example payload sent to ABRP:
+
+```
+utc=1730000000&soc=54.1&speed=23.4&lat=40.71278&lon=-74.00611&voltage=398.2&current=-42.3&power=16.8&is_charging=0
+```
+
+See the [ABRP API guide](/config/abrp) for full configuration details.

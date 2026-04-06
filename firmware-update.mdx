@@ -1,0 +1,140 @@
+---
+title: "Firmware update"
+description: "Update WiCAN firmware via OTA through the web interface, or flash directly over USB using the Espressif flash tool or ESPTool Web."
+---
+
+<Warning>
+  During flashing, the device configuration may be erased. Take screenshots of your **Settings**, **Automate**, and **MQTT** tabs before proceeding.
+</Warning>
+
+<Note>
+  Devices running firmware v1.00 must use the USB flash method — OTA is not available on that version.
+</Note>
+
+## Download the right file
+
+Firmware releases are published on the [GitHub releases page](https://github.com/meatpiHQ/wican-fw/releases). Each release includes ZIP archives for each hardware variant. Download the ZIP that matches your device:
+
+| ZIP file | Device |
+|---|---|
+| `wican-fw_vXXX_obd.zip` | WiCAN OBD-II |
+| `wican-fw_vXXX_usb.zip` | WiCAN USB |
+| `wican-fw_vXXX_obd_pro.zip` | WiCAN PRO |
+
+Replace `XXX` with the release version number (e.g., `v210`).
+
+## Method 1: OTA via the web interface
+
+OTA (over-the-air) is the simplest update method and does not require any tools or cables.
+
+<Steps>
+  <Step title="Download the firmware ZIP">
+    Go to the [GitHub releases page](https://github.com/meatpiHQ/wican-fw/releases) and download the ZIP for your device variant. Unzip the archive to any directory.
+  </Step>
+
+  <Step title="Open the web interface">
+    Connect to your WiCAN (via its access point or station IP) and open the configuration page in your browser. Go to the **System** tab.
+  </Step>
+
+  <Step title="Upload the firmware binary">
+    In the **Firmware Update** section, click **Choose File** and select the `.bin` file from the unzipped archive:
+
+    | Device | File to select |
+    |---|---|
+    | WiCAN OBD-II | `wican-fw_obd_vXXX.bin` |
+    | WiCAN USB | `wican-fw_usb_vXXX.bin` |
+    | WiCAN PRO | `wican-fw_obd_pro_vXXXp.bin` |
+  </Step>
+
+  <Step title="Start the update">
+    Click **Update**. The page will display **Updating please wait...** during the process. The update takes approximately 60 seconds. Do not close the browser tab or disconnect the device from power.
+  </Step>
+
+  <Step title="Verify the update">
+    After the device reboots, go to the **About** tab and confirm the **Firmware version** matches the version you just flashed.
+  </Step>
+</Steps>
+
+## Method 2: USB flash for WiCAN OBD-II and WiCAN USB
+
+Use this method to recover a device or when OTA is not available.
+
+<Warning>
+  The OBD-II adapter is not designed to be powered from the USB connector during normal operation. USB is for flashing and debugging only — do not leave it powered from USB when installed in a vehicle.
+</Warning>
+
+<Steps>
+  <Step title="Download the firmware and flash tool">
+    1. Go to the [latest release page](https://github.com/meatpiHQ/wican-fw/releases/latest) and download `wican-fw_vXXX_usb.zip`.
+    2. Download the [ESP Flash Tool](https://www.espressif.com/en/support/download/other-tools) from Espressif's website.
+  </Step>
+
+  <Step title="Put the device into flash mode">
+    Short the boot pins as shown in the release documentation for your device variant before plugging in the USB cable:
+
+    - **WiCAN OBD-II**: Short the boot pins on the OBD PCB.
+    - **WiCAN USB**: Short the boot pins on the USB PCB.
+
+    After shorting the pins, plug in the USB cable. The orange LED will light up to confirm the device is in flash mode.
+  </Step>
+
+  <Step title="Configure and run the flash tool">
+    Open the ESP Flash Tool, select the chip and configuration as specified in the release notes, and set the binary files and their flash addresses from the ZIP archive. Click **START**.
+
+    <Tip>
+      If you are recovering a device with a corrupted configuration, click **ERASE** before **START** to wipe the flash completely. This ensures any corrupt configuration files are removed.
+    </Tip>
+  </Step>
+</Steps>
+
+## Method 3: USB flash for WiCAN PRO
+
+WiCAN PRO uses a CH342 dual USB-to-serial chip and is flashed using ESPTool Web in a browser.
+
+<Steps>
+  <Step title="Install CH342 drivers">
+    Install the driver for your operating system before connecting the device:
+
+    <Tabs>
+      <Tab title="Windows">
+        Download and install the [CH342 Windows driver](https://www.wch-ic.com/downloads/CH343SER_EXE.html) from WCH.
+      </Tab>
+      <Tab title="macOS">
+        Install the [CH34x macOS driver](https://github.com/WCHSoftGroup/ch34xser_macos) from the WCHSoftGroup GitHub repository.
+      </Tab>
+      <Tab title="Linux">
+        Install the [CH343 Linux driver](https://github.com/WCHSoftGroup/ch343ser_linux) from the WCHSoftGroup GitHub repository.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Download the WiCAN PRO firmware">
+    Go to the [latest release page](https://github.com/meatpiHQ/wican-fw/releases/latest) and download `wican-fw_vXXX_obd_pro.zip`. Unzip the archive to a directory you can easily locate.
+  </Step>
+
+  <Step title="Connect WiCAN PRO">
+    Plug WiCAN PRO into your vehicle's OBD-II port (to provide power), then connect a USB cable to your computer. Two COM ports will appear in your device manager. Use **Serial-A** (the first port).
+  </Step>
+
+  <Step title="Open ESPTool Web and connect">
+    Open [ESPTool Web](https://espressif.github.io/esptool-js/) in your browser. Click **Connect** and select the correct COM port (Serial-A) from the dialog.
+  </Step>
+
+  <Step title="Erase existing flash">
+    Click **Erase** to clear the existing firmware and configuration from the device. Wait for the erase to complete before proceeding.
+
+    <Warning>
+      Erasing will delete all saved configuration. Ensure you have noted down your settings before this step.
+    </Warning>
+  </Step>
+
+  <Step title="Add the firmware files and flash">
+    Add the 4 firmware binary files from the unzipped archive, ensuring each file is mapped to the correct flash address as shown in the release documentation. Then click **Program** to flash the firmware.
+
+    Wait for all 4 files to complete programming before disconnecting the device.
+  </Step>
+
+  <Step title="Verify the update">
+    After the device reboots, connect to its access point and open the web interface. Go to the **About** tab and confirm the firmware version is correct.
+  </Step>
+</Steps>

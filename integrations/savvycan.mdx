@@ -1,0 +1,74 @@
+---
+title: "SavvyCAN"
+description: "Connect WiCAN to SavvyCAN for cross-platform CAN bus capture, analysis, and reverse engineering using the GVRET protocol."
+---
+
+[SavvyCAN](https://www.savvycan.com/) is a free, open-source CAN bus analysis and reverse engineering tool available on Windows, macOS, and Linux. WiCAN communicates with SavvyCAN using the **GVRET** binary protocol over a TCP network connection — no serial adapter or additional drivers required.
+
+## How it works
+
+WiCAN implements the GVRET (Generalized Vehicle Reverse Engineering Tool) protocol, which SavvyCAN uses to stream CAN frames, synchronize timestamps, and configure bus parameters over a network socket. The firmware build number exposed to SavvyCAN is `618`.
+
+## Configure WiCAN
+
+Open the WiCAN web interface and go to the **Settings** tab:
+
+1. Set **Protocol** to `SavvyCAN` (GVRET)
+2. Set **Port Type** to `TCP`
+3. Click **Submit changes** — the device will reboot
+
+<Note>
+  After saving, note the IP address and port shown in the **Status** tab. You will need these when adding the device in SavvyCAN.
+</Note>
+
+## Connect SavvyCAN
+
+<Steps>
+  <Step title="Download and open SavvyCAN">
+    Download the latest release from [savvycan.com](https://www.savvycan.com/) and launch the application.
+  </Step>
+  <Step title="Open the connection window">
+    In the menu bar, click **Connection → Open Connection Window**.
+  </Step>
+  <Step title="Add a new device">
+    Click **Add New Device** in the connection window.
+  </Step>
+  <Step title="Select Network Connection">
+    From the device type list, select **Network Connection**.
+
+    If WiCAN is on the same network as your computer, SavvyCAN will auto-detect the IP address. Otherwise, enter it manually using the IP shown in the WiCAN **Status** tab (default AP IP: `192.168.80.1`, port `3333`).
+  </Step>
+  <Step title="Create the connection">
+    Click **Create New Connection**. The device will appear in the connection list.
+  </Step>
+  <Step title="Enable the bus">
+    Check the **Enable Bus** checkbox next to the newly added device. SavvyCAN will connect to WiCAN and begin receiving CAN frames immediately.
+  </Step>
+</Steps>
+
+## Features
+
+Once connected, you have access to SavvyCAN's full analysis suite:
+
+- **Frame capture** — live view of all CAN frames with timestamps and byte values
+- **Filtering** — include or exclude frames by ID range, mask, or value pattern
+- **Graphing** — plot byte or bit fields from a frame over time
+- **DBC file loading** — decode named signals from frames using a DBC database
+- **Playback** — replay captured log files at the original frame rate
+- **Flow view** — identify periodic messages and detect anomalies
+- **Fuzzing** — send modified frames to probe ECU responses
+
+<Tip>
+  Load a DBC file for your vehicle via **File → Load DBC File** to automatically decode signal names and values in the frame list.
+</Tip>
+
+## Typical reverse engineering workflow
+
+1. Connect to WiCAN in SavvyCAN and capture frames with the ignition on.
+2. Use the **Filter** panel to isolate frames that change when you interact with a specific vehicle feature (e.g., pressing a button or changing a setting).
+3. Use the **Bit Array** view to identify which bits within a frame correspond to the feature.
+4. Save the capture log for offline analysis or to share with others.
+
+<Note>
+  SavvyCAN operates in a listen-only capacity by default. Sending frames to the vehicle bus is possible via the **Send Frames** window, but should only be done if you understand the implications for the vehicle's CAN network.
+</Note>

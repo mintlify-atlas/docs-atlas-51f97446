@@ -1,0 +1,69 @@
+---
+title: "Factory reset"
+description: "Restore WiCAN PRO to factory defaults when the device is misconfigured or access credentials are lost."
+---
+
+<Warning>
+  Factory reset is only supported on **WiCAN PRO** devices. The standard WiCAN does not have the hardware button required for this procedure.
+</Warning>
+
+Use a factory reset when:
+
+- You have forgotten the WiFi access point password
+- You applied a configuration that makes the device unreachable over the network
+- The device is in an unknown state and you want to start fresh
+
+A factory reset **deletes all saved settings** including WiFi credentials, CAN configuration, MQTT settings, and sleep mode configuration. This cannot be undone.
+
+## Entering safe mode
+
+WiCAN PRO must be in safe mode before a factory reset can be performed. Safe mode is triggered by holding the on-device button during power-on.
+
+<Steps>
+  <Step title="Unplug the device">
+    Remove the WiCAN PRO from the vehicle OBD-II port.
+  </Step>
+  <Step title="Press and hold the button">
+    Press and hold the on-device button, then plug the WiCAN PRO back into the OBD-II port while continuing to hold the button.
+  </Step>
+  <Step title="Wait for the yellow LED">
+    Keep holding the button for approximately **10 seconds**, until the yellow status LED turns on. Release the button. The device is now in safe mode.
+  </Step>
+</Steps>
+
+In safe mode, WiCAN PRO broadcasts an access point named `WiCAN_xxxxxxxxxx` with the default password `@meatpi#`.
+
+## Performing the reset
+
+<Steps>
+  <Step title="Connect to the safe mode access point">
+    On your laptop or mobile device, connect to the `WiCAN_xxxxxxxxxx` WiFi network using the password `@meatpi#`.
+  </Step>
+  <Step title="Open the safe mode web interface">
+    In your browser, navigate to:
+
+    ```
+    http://192.168.0.10/
+    ```
+  </Step>
+  <Step title="Select Factory Reset">
+    The safe mode page exposes two actions: **Factory Reset** and **Firmware Update**. Click **Factory Reset**.
+
+    The device will restore all settings to factory defaults and reboot.
+  </Step>
+</Steps>
+
+## After the reset
+
+Once the device reboots, it returns to its factory default state:
+
+- AP mode enabled with network name `WiCAN_xxxxxxxxxx`
+- Default AP password: `@meatpi#`
+- CAN rate: 500K, Normal mode
+- Sleep mode: disabled
+
+Reconnect to the access point using the default credentials and reconfigure the device from the **Settings** tab.
+
+<Tip>
+  After reconnecting, change the default AP password immediately in the **Settings** tab to prevent unauthorized access.
+</Tip>

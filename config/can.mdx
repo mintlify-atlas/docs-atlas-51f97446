@@ -1,0 +1,97 @@
+---
+title: "CAN bus configuration"
+description: "Configure CAN bus data rate, operating mode, port type, and protocol for your WiCAN adapter."
+---
+
+CAN bus settings are configured from the **Settings** tab in the WiCAN web interface. These settings control how WiCAN communicates on the vehicle CAN bus and how it exposes data over the network.
+
+## Data rate
+
+WiCAN supports the following CAN bus bit rates:
+
+| Setting | Bit rate | Common use |
+|---------|----------|------------|
+| `5K` | 5 kbps | Low-speed legacy systems |
+| `10K` | 10 kbps | |
+| `20K` | 20 kbps | |
+| `25K` | 25 kbps | |
+| `50K` | 50 kbps | |
+| `100K` | 100 kbps | |
+| `125K` | 125 kbps | Industrial CAN |
+| `250K` | 250 kbps | OBD-II J1939, many vehicles |
+| `500K` | 500 kbps | OBD-II high-speed CAN (most common) |
+| `800K` | 800 kbps | |
+| `1000K` | 1 Mbit/s | Maximum supported rate |
+
+WiCAN supports CAN 2.0A and CAN 2.0B at speeds up to 1 Mbit/s.
+
+<Tip>
+  Most modern petrol/diesel vehicles use **500K** on OBD-II CAN. Older vehicles and some European manufacturers use **250K**. If unsure, try 500K first.
+</Tip>
+
+For OBD-II diagnostics, the CAN frame ID format also matters:
+- **11-bit IDs (CAN 2.0A)** — standard for most passenger vehicles
+- **29-bit IDs (CAN 2.0B)** — extended frame format, used in some trucks and commercial vehicles
+
+## CAN mode
+
+| Mode | Description |
+|------|-------------|
+| `Normal` | WiCAN sends and receives CAN frames. Required for OBD-II queries, ELM327, and AutoPID. |
+| `Silent` | Listen-only mode. WiCAN captures CAN traffic without transmitting. Use this for bus monitoring with SavvyCAN or SLCAN when you do not want to affect bus traffic. |
+
+<Warning>
+  Silent mode prevents WiCAN from sending any frames. ELM327, OBD-II queries, and AutoPID will not function in Silent mode because they require sending request frames.
+</Warning>
+
+## Port type
+
+| Port type | Description |
+|-----------|-------------|
+| `TCP` | Reliable, connection-oriented. Required for ELM327 and RealDash. |
+| `UDP` | Lower overhead, connectionless. Suitable for high-throughput raw CAN logging. |
+
+## Protocol
+
+The protocol setting determines how CAN data is framed and presented over the network connection.
+
+| Protocol | Port | Description |
+|----------|------|-------------|
+| `SLCAN` | TCP or UDP | Serial-line CAN format. Compatible with SocketCAN, BUSmaster, and python-can. |
+| `RealDash` | TCP | RealDash "66" binary format for live dashboard display in the RealDash app. |
+| `SavvyCAN` | TCP or UDP | GVRET format for use with the SavvyCAN desktop CAN analysis tool. |
+| `OBD ELM327` | TCP | ELM327 AT command emulation for OBD-II diagnostic apps. |
+| `AutoPID` | TCP | WiCAN AutoPID protocol for automated PID polling and MQTT publishing. |
+
+## ELM327 setup
+
+To use WiCAN with OBD-II diagnostic apps (Torque, OBD Fusion, Car Scanner, etc.) over WiFi:
+
+<Steps>
+  <Step title="Open the Settings tab">
+    Connect to WiCAN and navigate to the **Settings** tab in the web interface.
+  </Step>
+  <Step title="Set the data rate">
+    Select the CAN bit rate for your vehicle. Use **500K** for most modern vehicles or **250K** for older vehicles.
+  </Step>
+  <Step title="Set Port Type to TCP">
+    Change **Port Type** to `TCP`.
+  </Step>
+  <Step title="Set Protocol to ELM327">
+    Change **Protocol** to `elm327`.
+  </Step>
+  <Step title="Enable BLE if needed">
+    If your diagnostic app connects via Bluetooth rather than WiFi, enable **BLE** in the settings.
+
+    <Note>
+      When BLE is connected, the configuration access point is disabled. Disconnect BLE before attempting to reconfigure the device.
+    </Note>
+  </Step>
+  <Step title="Save and connect your app">
+    Click **Submit changes**. In your OBD-II app, configure a WiFi connection using the WiCAN IP address and port shown in the **Status** tab.
+  </Step>
+</Steps>
+
+<Note>
+  If you are using firmware v1.64 or older, update to the latest firmware before enabling BLE. Older firmware versions have known issues with BLE stability.
+</Note>

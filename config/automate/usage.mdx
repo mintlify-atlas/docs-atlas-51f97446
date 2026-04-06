@@ -1,0 +1,219 @@
+---
+title: "Automate usage"
+description: "Use the Automate tab to periodically poll your vehicle's ECU for OBD PIDs and stream data over MQTT or HTTP."
+---
+
+## Introduction to OBD PIDs
+
+OBD (On-Board Diagnostics) PIDs (Parameter IDs) are codes used to request specific data from a vehicle's ECU. These standardized codes let diagnostic tools communicate with vehicles and retrieve real-time information about engine performance, emissions, speed, temperature, and more.
+
+PIDs are represented in hexadecimal format and organized into modes (also called services). For example, Mode `01` contains real-time engine parameters, while Mode `09` contains vehicle information such as the VIN. Some parameters—especially EV-specific ones like battery State of Charge—are not part of the SAE J1979 standard and are exposed through proprietary, manufacturer-specific PIDs.
+
+WiCAN uses PIDs to periodically poll your vehicle for specific information, making the results available in real time over MQTT or HTTP.
+
+## Overview
+
+The **Automate** feature requests one or more PIDs from your vehicle's ECU on a configurable interval. This enables continuous, hands-off monitoring of vehicle parameters.
+
+<Warning>
+Before using Automate, set **Protocol** to **AutoPID** in the **CAN** section of the **Settings** tab. Without this, the Automate tab will not function.
+</Warning>
+
+Configuration is done in the **Automate** tab of the WiCAN web interface.
+
+## Monitoring responses
+
+<Tabs>
+  <Tab title="MQTT">
+    Subscribe to the MQTT topic configured in the Automate settings. Responses are published there at each polling interval.
+
+    Requires MQTT to be enabled in the **Settings** tab.
+  </Tab>
+  <Tab title="HTTP">
+    Open a browser or send an HTTP GET request to:
+
+    ```
+    http://<WiCAN IP address>/autopid_data
+    ```
+
+    This endpoint returns the latest polled values as JSON and is available even without MQTT.
+  </Tab>
+</Tabs>
+
+## Automate settings
+
+| Setting | Description |
+|---|---|
+| **MQTT HA Discovery** | Currently disabled. Use the [Home Assistant integration](/home-assistant/integration-setup) instead — it auto-detects parameters. |
+| **Grouping** | When enabled, groups related PIDs together in the MQTT output for a more organized structure. |
+| **Destination Type** | Controls where data is sent. Default makes data available via the HTTP endpoint. **MQTT Topic** sends data to the topic specified in **Destination**. |
+| **Destination** | Custom MQTT topic to publish data to (used when Destination Type is **MQTT Topic**). |
+| **Cycle Time (ms)** | Interval in milliseconds at which all configured PIDs are requested. Example: `5000` polls every 5 seconds. |
+
+## Standard PIDs
+
+Standard PIDs implement the SAE J1979 specification and are available on most petrol and diesel vehicles.
+
+<Info>
+Not all manufacturers expose every standard PID. For example, some vehicles do not support Odometer or Fuel Level via standard PIDs. Use **Vehicle Specific** PIDs for those parameters.
+</Info>
+
+| Setting | Description |
+|---|---|
+| **Standard PIDs** | Enable to use SAE J1979 standard OBD-II PIDs. See the full list on [Wikipedia](https://en.wikipedia.org/wiki/OBD-II_PIDs#Standard_PIDs). |
+| **ECU Protocol** | Select the CAN protocol your vehicle uses. |
+| **Available PIDs** | Shows the list of standard PIDs to be requested. |
+| **Add PID** | Manually add a specific PID to the list. |
+| **Scan PIDs** | Automatically queries the vehicle to detect which standard PIDs it supports. |
+
+### ECU protocol options
+
+| Protocol | Description |
+|---|---|
+| ISO 15765-4 CAN (11-bit ID, 500 kbaud) | Most common in modern vehicles |
+| ISO 15765-4 CAN (29-bit ID, 500 kbaud) | Extended frame, 500 kbaud |
+| ISO 15765-4 CAN (11-bit ID, 250 kbaud) | Standard frame, 250 kbaud |
+| ISO 15765-4 CAN (29-bit ID, 250 kbaud) | Extended frame, 250 kbaud |
+
+## Vehicle specific
+
+Vehicle-specific PIDs use pre-configured profiles that define initialization commands and manufacturer-specific PID formulas. These are required for parameters such as EV battery State of Charge that are not exposed via standard OBD-II.
+
+| Setting | Description |
+|---|---|
+| **Vehicle Specific** | Enable to use the selected vehicle model's profile. |
+| **Vehicle Model** | Select your vehicle from the dropdown. |
+| **Get Latest** | Downloads the most up-to-date vehicle profiles from the WiCAN server. |
+| **Vehicle Profiles** | Upload a custom profile JSON file manually (useful when internet access is limited). |
+| **Specific Initialisation** | Read-only display of the initialization AT commands defined in the selected profile. |
+
+<Tip>
+Use **Get Latest** periodically — community-contributed profiles are added regularly. See [Supported vehicles](/config/automate/supported-vehicles) for the full list.
+</Tip>
+
+## Custom PIDs
+
+Custom PIDs give you full control over what is requested and how values are computed. Use them to test new PID requests, send results to specific MQTT topics, or integrate with a Wallbox.
+
+| Field | Description |
+|---|---|
+| **Name** | Attribute name used in the output (e.g., `MY_PARAM`). |
+| **Init** | AT command(s) sent before this PID is requested (e.g., `ATSH7E4`). |
+| **Expression** | Formula to compute the parameter value from the raw response bytes. |
+| **Min Value** | Minimum expected value from the expression (used for validation). |
+| **Max Value** | Maximum expected value from the expression (used for validation). |
+| **Period** | Polling interval in milliseconds for this specific PID. |
+| **Destination Type** | `Default` (HTTP), `MQTT Topic`, or `Wallbox` format. |
+| **Send_to** | The MQTT topic to publish the result to when Destination Type is **MQTT Topic**. |
+
+Use the **New** button to add additional custom PIDs. Use **Delete** to remove a PID configuration.
+
+## Expression format
+
+The **Expression** field converts raw response bytes from the ECU into a meaningful value. Expressions are evaluated as mathematical formulas referencing indexed byte variables.
+
+### Data access
+
+| Syntax | Description | Example |
+|---|---|---|
+| `B0`, `B1`, ... | Unsigned byte at index (zero-based) | `B0` — first byte |
+| `S0`, `S1`, ... | Signed byte at index | `S0` — first byte as signed 8-bit |
+| `B0:3` | Single bit within a byte (`Bx:y` — byte x, bit y) | `B0:3` — bit 3 of byte 0 |
+| `[B0:B1]` | Multi-byte range as unsigned 16-bit (big-endian) | `[B0:B1]` — bytes 0–1 as uint16 |
+| `[S0:S1]` | Multi-byte range as signed 16-bit (big-endian) | `[S0:S1]` — bytes 0–1 as int16 |
+
+<Note>
+Bytes are zero-indexed. `B0` is the first byte. Multi-byte ranges support up to 8 bytes.
+</Note>
+
+### Supported operators
+
+| Operator | Type | Example |
+|---|---|---|
+| `+`, `-`, `*`, `/` | Arithmetic | `[B0:B1] / 4` |
+| `&`, `\|`, `^` | Bitwise AND, OR, XOR | `B0 & 0x0F` |
+| `<<`, `>>` | Bit shift left/right | `B0 << 8` |
+| `(`, `)` | Grouping | `(B0 + B1) * 4` |
+
+Expressions follow standard operator precedence. Use parentheses to control evaluation order.
+
+### Common expression patterns
+
+<AccordionGroup>
+  <Accordion title="Simple value extraction">
+    ```
+    B0
+    ```
+    Returns the raw value of the first byte. Common for speed (`SPEED`), which is a direct km/h value.
+  </Accordion>
+
+  <Accordion title="Temperature (offset -40)">
+    ```
+    B0 - 40
+    ```
+    SAE J1979 temperature encoding. Used for coolant temperature (`COOLANT_TMP`) and intake air temperature.
+  </Accordion>
+
+  <Accordion title="Engine RPM">
+    ```
+    [B0:B1] / 4
+    ```
+    Standard OBD-II encoding: two bytes divided by 4 gives RPM. Also written as `[B0:B1]*0.25`.
+  </Accordion>
+
+  <Accordion title="Percentage (8-bit to 0–100%)">
+    ```
+    B0 * 100 / 255
+    ```
+    Converts a 0–255 byte to a 0–100% value. Used for engine load, fuel level, and throttle position.
+  </Accordion>
+
+  <Accordion title="High-voltage battery voltage">
+    ```
+    [B0:B1] / 10
+    ```
+    Combines two bytes and divides by 10. Used for HV battery voltage readings in EVs.
+  </Accordion>
+
+  <Accordion title="Battery voltage (millivolts)">
+    ```
+    [B0:B1] / 1000
+    ```
+    Converts millivolts stored as a 16-bit integer to volts.
+  </Accordion>
+
+  <Accordion title="Signed current (two's complement alternative)">
+    ```
+    (65536 - [B0:B1]) / 10
+    ```
+    Some EVs encode current as `65536 - raw_value`. Dividing by 10 gives amps.
+  </Accordion>
+
+  <Accordion title="Bit masking">
+    ```
+    (B0 & 0xF0) >> 4
+    ```
+    Extracts the upper nibble of a byte. Use `B0 & 0x0F` for the lower nibble.
+  </Accordion>
+
+  <Accordion title="Multi-byte 32-bit value">
+    ```
+    [B0:B3]
+    ```
+    Combines four bytes into a 32-bit unsigned integer. Common for odometer readings.
+  </Accordion>
+</AccordionGroup>
+
+### Expression examples
+
+| Parameter | Expression | Notes |
+|---|---|---|
+| Vehicle speed | `B0` | Direct byte in km/h |
+| Engine RPM | `[B0:B1] / 4` | SAE J1979 standard encoding |
+| Engine coolant temp | `B0 - 40` | Offset of −40°C |
+| Fuel level | `B0 * 100 / 255` | 0–255 scaled to percentage |
+| Engine load | `B0 * 100 / 255` | 0–255 scaled to percentage |
+| Battery voltage (V) | `[B0:B1] / 1000` | 16-bit millivolts to volts |
+| HV battery voltage | `[B0:B1] / 10` | 16-bit value ÷ 10 |
+| State of Charge | `[B0:B1] / 10` | 16-bit value ÷ 10 gives % |
+| Odometer | `[B0:B3]` | 32-bit km value |

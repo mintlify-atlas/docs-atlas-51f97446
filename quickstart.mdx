@@ -1,80 +1,124 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick start"
+description: "Connect your WiCAN to your vehicle and home WiFi network, then start streaming OBD-II data."
 ---
 
-## Get started in three steps
+## Before you begin
 
-Get your documentation site running locally and make your first customization.
+- WiCAN OBD-II or WiCAN PRO plugged into your vehicle's OBD-II port, **or** WiCAN USB connected to a CAN bus device.
+- A phone or laptop with WiFi.
+- Your home WiFi SSID and password (for station mode).
 
-### Step 1: Set up your local environment
+<Note>
+  The OBD-II adapter is not designed to be powered from the USB connector during normal operation. USB is for flashing firmware and hard-resetting the device only. Always use the OBD-II port for power when the device is installed in a vehicle.
+</Note>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+## Connect and configure
 
-### Step 2: Deploy your changes
+<Steps>
+  <Step title="Plug WiCAN into your vehicle">
+    Insert the WiCAN OBD-II adapter into the OBD-II port, typically located under the dashboard on the driver's side. The device powers on automatically from the vehicle's OBD-II PIN 16 supply.
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    For WiCAN USB, connect the screw-terminal connector to your CAN bus wiring (CANH and CANL), then supply power via USB or the terminal's power pins.
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Connect to the WiCAN access point">
+    WiCAN creates a WiFi access point named **`WiCAN_xxxxxxx`**, where `xxxxxxx` is the device ID printed on the label.
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    Connect your phone or laptop to this network using the default password:
 
-### Step 3: Go live
+    ```text
+    @meatpi#
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    If you are on a phone, confirm that you want to stay connected even though the network has no internet access.
+
+    <Tip>
+      Change the access point password in the **Settings** tab after your first login to prevent others from connecting when your vehicle is parked in public.
+    </Tip>
+  </Step>
+
+  <Step title="Open the web interface">
+    Open your browser and navigate to the WiCAN configuration page:
+
+    | Device | URL |
+    |---|---|
+    | WiCAN / WiCAN USB | `http://192.168.80.1` |
+    | WiCAN PRO | `http://192.168.0.10` |
+
+    You should see the WiCAN web interface with tabs for **Status**, **Settings**, **Automate**, and **System**.
+  </Step>
+
+  <Step title="Join your home WiFi network">
+    Go to the **Settings** tab and configure station mode:
+
+    1. Set **Mode** to `AP+Station`.
+    2. Enter your home WiFi **SSID** and **Password**.
+    3. Click **Submit changes**.
+
+    The device will reboot and connect to your home network while keeping the access point active for configuration.
+
+    <Note>
+      In AP+Station mode, use the station IP address for all data access. The access point IP (`192.168.80.1` or `192.168.0.10`) is for configuration only.
+    </Note>
+  </Step>
+
+  <Step title="Find the station IP address">
+    After the device reconnects, go to the **Status** tab. Look for the **Station IP** field — this is the IP address assigned by your home router.
+
+    Note this address. You will use it to access the web interface and data endpoints from any device on your home network.
+  </Step>
+
+  <Step title="Enable AutoPID for vehicle data">
+    Go to the **Settings** tab and set **Protocol** to `AutoPID`, then click **Submit changes**.
+
+    Now go to the **Automate** tab:
+
+    1. Enable **Vehicle Specific**.
+    2. Select your **Vehicle Model** from the dropdown. Click **Get Latest** if your vehicle is not listed.
+    3. Set the **Cycle Time (ms)** to how often you want data polled (e.g., `5000` for every 5 seconds).
+    4. Click **Submit changes**.
+  </Step>
+
+  <Step title="Access your vehicle data">
+    Vehicle data is available in two ways:
+
+    **HTTP endpoint** — Open a browser and go to:
+
+    ```text
+    http://[station-ip]/autopid_data
+    ```
+
+    **MQTT** — If you have an MQTT broker (such as the one built into Home Assistant), enable MQTT in the **Settings** tab and point it at your broker. Data will be published to the configured topics automatically.
+
+    <Tip>
+      The HTTP endpoint is useful for quick checks. For continuous monitoring and Home Assistant integration, configure MQTT.
+    </Tip>
+  </Step>
+</Steps>
+
+## Important notes on BLE
+
+<Warning>
+  When BLE is connected to a phone or device, the WiCAN access point is disabled. You will not be able to open the web interface until you disconnect BLE from your phone or turn off BLE on the connecting device.
+</Warning>
+
+- Disable BLE in the **Settings** tab if you are not using it. Active BLE can affect performance.
+- In AP+Station mode, always use the station IP to communicate with the device. Do not use the access point IP for data traffic.
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Configure MQTT" icon="tower-broadcast" href="/config/mqtt">
+    Set up MQTT to stream CAN data to your broker or Home Assistant.
+  </Card>
+  <Card title="Automate & OBD" icon="gauge" href="/config/automate/usage">
+    Learn how to configure standard PIDs, vehicle-specific profiles, and custom PID expressions.
+  </Card>
+  <Card title="Hardware overview" icon="microchip" href="/hardware-overview">
+    Review pinouts and supported protocols for your WiCAN variant.
+  </Card>
+  <Card title="Firmware update" icon="arrow-up-from-bracket" href="/firmware-update">
+    Keep your firmware up to date to access the latest features.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

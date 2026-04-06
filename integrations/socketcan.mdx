@@ -1,0 +1,134 @@
+---
+title: "SocketCAN"
+description: "Use WiCAN with Linux SocketCAN and can-utils by connecting over SLCAN (Serial-line CAN) protocol via TCP or USB."
+---
+
+WiCAN implements the SLCAN (Serial-line CAN) protocol, which is natively supported by the Linux `slcand` driver and compatible with the SocketCAN networking stack. This lets you use WiCAN as a standard `can0` network interface on any Linux machine, giving you access to the full `can-utils` toolset.
+
+## Prerequisites
+
+- A Linux machine with `can-utils` and `socat` installed
+- WiCAN connected to your WiFi network (or via USB for WiCAN-USB)
+
+Install the required tools on Debian/Ubuntu:
+
+```bash
+sudo apt-get install can-utils socat
+```
+
+## Configure WiCAN
+
+Open the WiCAN web interface and go to the **Settings** tab:
+
+1. Set **Protocol** to `slcan`
+2. Set **Port Type** to `TCP`
+3. Click **Submit changes** — the device will reboot
+
+<Note>
+  After saving, check the **Status** tab for the device's IP address and port. The default port is `3333`.
+</Note>
+
+## Connect on Linux
+
+<Tabs>
+  <Tab title="WiFi">
+    Create a virtual serial port over TCP using `socat`, then attach it to a CAN interface with `slcand`:
+
+    ```bash
+    sudo socat pty,link=/dev/netcan0,raw tcp:192.168.80.1:3333 &
+    sudo slcand -o -c -s8 /dev/netcan0 can0
+    sudo ifconfig can0 txqueuelen 1000
+    sudo ifconfig can0 up
+    ```
+
+    Replace `192.168.80.1` with your WiCAN's IP address if it is connected to your home network (visible in the **Status** tab).
+
+    The `-s8` flag sets the CAN bitrate to 1 Mbit/s. See the bitrate table below for other values.
+  </Tab>
+  <Tab title="USB (WiCAN-USB)">
+    When connected via USB, WiCAN-USB appears as a serial device (e.g., `/dev/ttyACM0`). Attach it directly with `slcand`:
+
+    ```bash
+    sudo slcand -o -s6 -t sw -S 4000000 /dev/ttyACM0 can0
+    sudo ifconfig can0 txqueuelen 1000
+    sudo ifconfig can0 up
+    ```
+
+    The `-S 4000000` flag sets the USB serial baud rate to 4 Mbit/s. The `-s6` flag sets the CAN bitrate to 500 Kbit/s.
+  </Tab>
+</Tabs>
+
+### SLCAN bitrate flags
+
+The `-s` flag passed to `slcand` selects the CAN bus speed:
+
+| Flag | CAN bitrate |
+|------|-------------|
+| `-s0` | 10 Kbit/s |
+| `-s1` | 20 Kbit/s |
+| `-s2` | 50 Kbit/s |
+| `-s3` | 100 Kbit/s |
+| `-s4` | 125 Kbit/s |
+| `-s5` | 250 Kbit/s |
+| `-s6` | 500 Kbit/s |
+| `-s7` | 750 Kbit/s |
+| `-s8` | 1 Mbit/s |
+
+Set this to match the CAN bus bitrate configured in WiCAN's **Settings** tab.
+
+## Using can-utils
+
+Once the `can0` interface is up, you can use standard `can-utils` commands:
+
+```bash
+# Dump all frames in real time
+candump can0
+
+# Send a standard CAN frame (ID 0x123, 8 bytes)
+cansend can0 123#DEADBEEF01020304
+
+# Interactive sniffer with filtering
+cansniffer can0
+
+# Log frames to a file
+candump -l can0
+
+# Replay a log file
+canplayer -I candump.log
+```
+
+## Using python-can
+
+WiCAN also works with the [python-can](https://python-can.readthedocs.io/) library via the `socketcan` interface:
+
+```python
+import can
+
+bus = can.interface.Bus(channel="can0", interface="socketcan")
+
+# Receive one frame
+msg = bus.recv()
+print(msg)
+
+# Send a frame
+msg = can.Message(arbitration_id=0x123, data=[0xDE, 0xAD, 0xBE, 0xEF], is_extended_id=False)
+bus.send(msg)
+```
+
+<Tip>
+  If you prefer to skip the `socat`/`slcand` steps, python-can also supports `slcan` directly over a serial port or TCP socket. See the [python-can docs](https://python-can.readthedocs.io/en/stable/interfaces/slcan.html) for details.
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="socat fails to connect">
+    Verify the WiCAN IP and port from the **Status** tab. Ensure the device is on the same network and that its protocol is set to `slcan`. If connecting to the WiCAN AP directly, use `192.168.80.1:3333`.
+  </Accordion>
+  <Accordion title="can0 comes up but no frames appear">
+    Check that the CAN bitrate in WiCAN's **Settings** tab matches the `-s` flag you passed to `slcand`. A bitrate mismatch will cause the bus to report errors rather than valid frames.
+  </Accordion>
+  <Accordion title="candump shows bus-off or errors">
+    Confirm the vehicle or CAN bus is active. If you are testing in isolation (no bus connected), you may need a 120 Ω termination resistor on the CAN lines. On WiCAN-USB, connect the TR pin to CANH to activate the built-in termination resistor.
+  </Accordion>
+</AccordionGroup>

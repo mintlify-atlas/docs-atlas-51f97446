@@ -1,0 +1,254 @@
+---
+title: "HTTPS destinations"
+description: "Push grouped vehicle telemetry to custom HTTP or HTTPS endpoints. Supports bearer token auth, custom CA certificates, and multiple concurrent destinations."
+---
+
+The HTTPS destination feature lets WiCAN periodically POST a consolidated JSON payload of CAN and OBD-II parameters to one or more remote web endpoints. It is designed for custom dashboards, cloud data pipelines, time-series databases, and serverless webhook receivers.
+
+<Note>
+  **WiCAN PRO only.** Standard WiCAN does not support TLS and is limited to HTTP endpoints. Upgrade to WiCAN PRO for encrypted HTTPS transport.
+</Note>
+
+Key characteristics:
+
+- **Outbound only** — WiCAN initiates all connections. No inbound port forwarding is required.
+- **Consolidated payload** — Grouping aggregates multiple PIDs into a single JSON object per POST.
+- **Multiple destinations** — Up to 6 HTTPS destinations can run concurrently alongside MQTT.
+- **Flexible TLS trust** — Use the built-in public CA bundle or supply a custom certificate for private PKI or mutual TLS.
+
+## Prerequisites
+
+- WiCAN PRO connected to a network with internet (or intranet) access to your endpoint
+- An HTTPS endpoint that accepts POST requests with a JSON body
+- Grouping enabled in the **Automate** tab (required — see below)
+
+## Enabling grouping
+
+<Warning>
+  Grouping **must** be enabled or the HTTPS destination will not send any data. Without grouping, no consolidated telemetry payload is produced.
+</Warning>
+
+In the **Automate** tab, find the **Grouping** toggle at the top of the page and set it to **Enable**. Grouping merges all enabled PIDs — standard, vehicle-specific, and custom — into a single JSON object that is POSTed to every enabled destination on each cycle.
+
+## Adding a destination
+
+<Steps>
+  <Step title="Open the Automate tab">
+    Navigate to the device web UI (e.g. `http://wican.local`) and click the **Automate** tab in the navigation bar.
+  </Step>
+  <Step title="Enable grouping">
+    At the top of the page, set **Grouping** to **Enable**.
+  </Step>
+  <Step title="Add a new destination">
+    Click **Add Destination**. Set **Type** to `HTTPS POST`.
+  </Step>
+  <Step title="Fill in the destination fields">
+    Configure the URL, cycle interval, authentication, and certificate set (see field reference below).
+  </Step>
+  <Step title="Enable and save">
+    Tick the **Enabled** checkbox on the right side of the destination entry, then scroll to the bottom of the page and press **Submit Changes**.
+  </Step>
+  <Step title="Verify data arrives">
+    Wait one full cycle interval, then check your server logs for the incoming POST body.
+  </Step>
+</Steps>
+
+## Destination field reference
+
+| Field | Description |
+|-------|-------------|
+| **Cycle (ms)** | Interval between POSTs. Minimum `1000`. Use `0` for event-only mode if supported by firmware. |
+| **Destination (URL)** | Full HTTPS URL including path (e.g. `https://api.example.com/ingest`). Must begin with `https://`. |
+| **Auth** | Authentication scheme: `None` or `Bearer Token`. |
+| **Auth value** | Token string for bearer auth. WiCAN automatically adds the `Authorization: Bearer` header. |
+| **Query params** | Optional key/value pairs appended to the URL. Click **Add param** to add entries. |
+| **Cert Set** | TLS trust configuration. `default` uses the firmware's public CA bundle. Select a custom set for private PKI. |
+| **Enabled** | Toggle the destination on or off without deleting it. |
+
+### Certificate sets
+
+<Tabs>
+  <Tab title="Default (public CA)">
+    The `default` cert set uses WiCAN PRO's embedded root CA bundle, which trusts certificates issued by common public CAs such as Let's Encrypt, DigiCert, and GlobalSign. This is appropriate for most public HTTPS endpoints.
+  </Tab>
+  <Tab title="Custom / private CA">
+    For self-signed certificates or private PKI, upload your CA certificate under **System → Certificates** before adding the destination.
+
+    <Steps>
+      <Step title="Go to System → Certificates">
+        In the web UI, navigate to the **System** tab and find the **Certificates** section.
+      </Step>
+      <Step title="Create a certificate set">
+        Enter a name (e.g. `corp_root`) and upload your CA certificate (PEM format). Optionally upload a client certificate and key for mutual TLS.
+      </Step>
+      <Step title="Select the set in your destination">
+        Return to the **Automate** tab and select your named certificate set from the **Cert Set** dropdown.
+      </Step>
+    </Steps>
+
+    If the wrong cert set is selected you will see TLS verification errors and no data will be delivered.
+  </Tab>
+</Tabs>
+
+## Payload format
+
+WiCAN sends two distinct payload structures depending on whether the POST is the first one after a device boot.
+
+### First POST after boot
+
+The initial POST includes device configuration and status metadata alongside telemetry. This is sent once per boot per enabled destination.
+
+```json
+{
+  "autopid_data": {
+    "TestCustom": 127.5
+  },
+  "config": {
+    "0C-EngineRPM":    { "class": "speed",       "unit": "rpm"  },
+    "0D-VehicleSpeed": { "class": "speed",       "unit": "km/h" },
+    "COOLANT_TMP":     { "class": "temperature", "unit": "°C"   },
+    "ENGINE_RPM":      { "class": "frequency",   "unit": "RPM"  },
+    "FUEL":            { "class": "none",         "unit": "%"    },
+    "FUEL_PRESSURE":   { "class": "pressure",    "unit": "kPa"  },
+    "INTAKE_AIR_TMP":  { "class": "temperature", "unit": "°C"   },
+    "MAF":             { "class": "none",         "unit": "g/s"  },
+    "ODOMETER":        { "class": "distance",    "unit": "km"   },
+    "SPEED":           { "class": "speed",       "unit": "km/h" },
+    "STFT":            { "class": "none",         "unit": "%"    },
+    "THROTTLE":        { "class": "none",         "unit": "%"    },
+    "TestCustom":      { "class": "none",         "unit": "none" }
+  },
+  "status": {
+    "device_id":   "device_id",
+    "fw_version":  "4.40",
+    "git_version": "v4.40p",
+    "hw_version":  "WiCAN-OBD-PRO",
+    "ecu_status":  "online",
+    "sta_status":  "Connected",
+    "sta_ip":      "192.168.0.146",
+    "wifi_mode":   "BLEStation"
+  }
+}
+```
+
+<Warning>
+  The `status` block may include sensitive values such as SSIDs, credentials, and tokens. Protect your ingest endpoint and avoid logging the full first payload in production. Filter or redact sensitive keys server-side if necessary.
+</Warning>
+
+### Subsequent periodic POSTs
+
+All POSTs after the first contain only the `autopid_data` block with current telemetry values.
+
+```json
+{
+  "autopid_data": {
+    "0C-EngineRPM":    4147,
+    "0D-VehicleSpeed": 0,
+    "COOLANT_TMP":     155,
+    "ENGINE_RPM":      4147,
+    "FUEL":            62.35,
+    "FUEL_PRESSURE":   300,
+    "INTAKE_AIR_TMP":  -40,
+    "MAF":             34.81,
+    "SPEED":           0,
+    "STFT":            -100,
+    "THROTTLE":        33.73,
+    "TestCustom":      127.5
+  }
+}
+```
+
+<Note>
+  Re-enabling a destination in the UI mid-session (without rebooting) does **not** resend the `config` and `status` blocks. They are only sent on the first POST after a cold boot.
+</Note>
+
+## Example configurations
+
+<Tabs>
+  <Tab title="Generic JSON ingest">
+    A standard public endpoint with bearer token authentication:
+
+    - **Destination:** `https://collector.example.com/iot/telemetry`
+    - **Cycle:** `5000`
+    - **Auth:** Bearer Token → `MY_API_TOKEN`
+    - **Cert Set:** `default`
+
+    The resulting request:
+
+    ```http
+    POST /iot/telemetry HTTP/1.1
+    Host: collector.example.com
+    Authorization: Bearer MY_API_TOKEN
+    Content-Type: application/json
+    User-Agent: ESP32 WiCAN/1.0
+
+    {"autopid_data": {"ENGINE_RPM": 4147, "SPEED": 0, ...}}
+    ```
+  </Tab>
+  <Tab title="With query parameters">
+    Add `source = wican_pro` and `env = prod` as query params. The URL becomes:
+
+    ```
+    https://collector.example.com/iot/telemetry?source=wican_pro&env=prod
+    ```
+  </Tab>
+  <Tab title="Private CA / mTLS">
+    For an internal endpoint using your own PKI:
+
+    1. Upload your CA certificate under **System → Certificates**.
+    2. Set **Cert Set** to your named set (e.g. `corp_root`).
+    3. Set **Destination** to your internal URL (e.g. `https://ingest.internal.lan/data`).
+    4. Optionally upload a client certificate and key to the cert set for mutual TLS.
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="No data arriving at the server">
+    Check the following:
+    - The **Enabled** checkbox is ticked for the destination.
+    - **Grouping** is set to **Enable** in the Automate tab.
+    - At least one full cycle interval has elapsed since saving.
+    - The device has network access to the destination URL.
+  </Accordion>
+  <Accordion title="TLS certificate error">
+    The server's certificate is not trusted by the selected cert set. If the server uses a public CA, confirm **Cert Set** is set to `default`. For private or self-signed certificates, upload the CA under **System → Certificates** and select that set.
+  </Accordion>
+  <Accordion title="401 Unauthorized">
+    The bearer token is incorrect or has expired. Re-copy the token from your service, remove any leading or trailing spaces, and re-enter it.
+  </Accordion>
+  <Accordion title="404 Not Found">
+    Verify the full URL path is correct, including any trailing slash required by your API.
+  </Accordion>
+  <Accordion title="Posts are slow or occasionally skipped">
+    WiFi instability can cause missed intervals. Try increasing the cycle interval, improving signal strength, or reducing the number of enabled PIDs to reduce payload size.
+  </Accordion>
+  <Accordion title="Timestamp values look wrong">
+    WiCAN uses NTP for time synchronisation. Ensure the device has internet access for NTP, or configure a local NTP server under the **System** tab.
+  </Accordion>
+</AccordionGroup>
+
+## Best practices
+
+- Start with a 5000–10000 ms cycle. Reduce only if your backend needs higher resolution data.
+- Use bearer tokens and rotate them regularly. Prefer short-lived tokens where your platform supports it.
+- For sensitive or proprietary telemetry, use a private CA with a WireGuard VPN tunnel.
+- Log the raw POST body first before designing a strict server-side schema — field names for custom PIDs can vary.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="ABRP integration" icon="car" href="/config/abrp">
+    Push live battery and trip data to A Better Routeplanner.
+  </Card>
+  <Card title="WireGuard VPN" icon="shield" href="/config/vpn-wireguard">
+    Secure your HTTPS endpoint behind a private VPN tunnel.
+  </Card>
+  <Card title="Automate & OBD" icon="gauge-high" href="/config/automate/usage">
+    Configure PID polling and grouping for telemetry collection.
+  </Card>
+  <Card title="HTTP API reference" icon="code" href="/api/http-api">
+    Full HTTP API reference for the device's local web server.
+  </Card>
+</CardGroup>

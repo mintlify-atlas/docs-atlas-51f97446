@@ -1,0 +1,95 @@
+---
+title: "WiFi configuration"
+description: "Configure WiFi modes, connect WiCAN to your home network, and manage access point settings."
+---
+
+WiCAN supports two WiFi modes: **AP mode** (default) and **AP+Station mode**. AP mode is used for direct connection and configuration. AP+Station mode connects WiCAN to your existing WiFi network so other devices on that network can communicate with it.
+
+## AP mode (default)
+
+By default, WiCAN creates its own WiFi access point named `WiCAN_xxxxxxxx`, where `xxxxxxxx` is the unique device ID printed on your unit. This ID is also used in MQTT topics to identify the device.
+
+Connect to the WiCAN access point using the default password `@meatpi#`, then open the web interface in your browser:
+
+<Tabs>
+  <Tab title="WiCAN">
+    Navigate to `http://192.168.80.1`
+  </Tab>
+  <Tab title="WiCAN PRO">
+    Navigate to `http://192.168.0.10`
+  </Tab>
+</Tabs>
+
+<Tip>
+  Change the default AP password in the **Settings** tab as soon as possible. Anyone who can physically approach your vehicle while WiCAN is powered on can connect using the default password.
+</Tip>
+
+<Note>
+  If you are using AP mode without connecting to a home network, it is recommended to **disable BLE** in the settings. When BLE is connected, the configuration access point is disabled and the device cannot be configured until BLE is disconnected.
+</Note>
+
+### AP auto-disable
+
+WiCAN can be configured to automatically disable the access point after a set period. This reduces exposure when the device is not being actively configured. The option is available in the **Settings** tab.
+
+### mDNS hostname
+
+WiCAN advertises itself over mDNS. You can reach the web interface using:
+
+```
+http://wican_xxxxxxxxxxxx.local
+```
+
+Replace `xxxxxxxxxxxx` with your device ID.
+
+## AP+Station mode
+
+AP+Station mode connects WiCAN to an existing WiFi network while keeping the configuration access point available. This lets you use WiCAN with any device on your home or workshop network.
+
+<Steps>
+  <Step title="Open the Settings tab">
+    Connect to the WiCAN access point and navigate to the web interface. Open the **Settings** tab.
+  </Step>
+  <Step title="Set mode to AP+Station">
+    Change the **Mode** field to `AP+Station`.
+  </Step>
+  <Step title="Enter your network credentials">
+    Fill in the **SSID** and **Password** for your home WiFi network.
+  </Step>
+  <Step title="Choose a security type">
+    Set the **Security** field to match your router's configuration:
+
+    | Option | Description |
+    |--------|-------------|
+    | `OPEN` | No password (unsecured network) |
+    | `WPA2_PSK` | WPA2 Personal — most common home router setting |
+    | `WPA3_PSK` | WPA3 Personal — newer routers with enhanced security |
+  </Step>
+  <Step title="Save and check the Station IP">
+    Click **Submit changes**. Open the **Status** tab to find the **Station IP** address assigned by your router. Use this IP to access WiCAN from other devices on your network.
+  </Step>
+</Steps>
+
+<Warning>
+  In AP+Station mode, use the **Station IP** for all device communication (CAN data, MQTT, API calls). The AP IP (`192.168.80.1` or `192.168.0.10`) is for configuration only.
+</Warning>
+
+## Security options
+
+The Station security setting controls how WiCAN authenticates to your WiFi network. It does not affect the AP password.
+
+| Value | Constant in firmware |
+|-------|----------------------|
+| Open | `WIFI_OPEN` |
+| WPA2-PSK | `WIFI_WPA2_PSK` |
+| WPA3-PSK | `WIFI_WPA3_PSK` |
+
+## Device ID
+
+The device ID (`xxxxxxxxxxxx`) is a unique identifier derived from the hardware. It appears in:
+
+- The AP network name: `WiCAN_xxxxxxxxxxxx`
+- The mDNS hostname: `wican_xxxxxxxxxxxx.local`
+- MQTT topics for CAN data and status messages
+
+You can find the device ID on the **Status** tab of the web interface or on the label on the device.

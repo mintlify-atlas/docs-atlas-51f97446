@@ -1,0 +1,219 @@
+---
+title: "WireGuard VPN"
+description: "Set up an encrypted WireGuard VPN tunnel on WiCAN PRO for secure remote access to CAN and OBD data from anywhere."
+---
+
+WireGuard creates a lightweight, encrypted VPN tunnel from WiCAN PRO to a remote server, allowing you to access CAN frames, OBD data, and the device web UI securely from anywhere — without exposing ports directly to the internet.
+
+<Note>
+  **WiCAN PRO only.** WireGuard VPN is not available on standard WiCAN or WiCAN USB.
+</Note>
+
+## What WireGuard does on WiCAN
+
+Once the tunnel is active, WiCAN PRO appears as a peer on your private network. All traffic routed through the tunnel is end-to-end encrypted using WireGuard's modern cryptography. Typical use cases include:
+
+- Secure remote diagnostics and telemetry collection
+- Access to services exposed only on a private subnet
+- Encrypted path for remote configuration and firmware updates
+
+## Prerequisites
+
+Before starting, have the following ready:
+
+| Item | Description |
+|------|-------------|
+| WireGuard server | A publicly reachable endpoint (domain or IP) running `wg`, such as a VPS, cloud instance, or compatible router |
+| Server public key | The server's base64-encoded WireGuard public key |
+| Assigned tunnel address | The IP address assigned to WiCAN PRO in the tunnel (e.g. `10.10.0.10/32`) |
+| Allowed IPs | The network ranges WiCAN should route through the tunnel |
+| Preshared key | Optional — adds an extra layer of security |
+| `.conf` file | Optional — a WireGuard client config exported from your server |
+
+### Easiest path: use your router's built-in WireGuard server
+
+For home and small-office use, you do not need a VPS. Many modern routers include a native WireGuard server that handles key generation, client profiles, and DDNS automatically.
+
+Compatible router families include: TP-Link (Omada / some Archer models), ASUS (Merlin firmware), GL.iNet, MikroTik, and Ubiquiti.
+
+<Steps>
+  <Step title="Enable WireGuard server on your router">
+    Log into the router admin UI. Find **VPN Server** or **WireGuard** under Advanced or VPN settings. Enable the server and note the UDP port (default is typically `51820`).
+  </Step>
+  <Step title="Add a client entry for WiCAN">
+    Create a new peer or client named "WiCAN". The router will generate or let you assign a tunnel IP (e.g. `10.10.0.10/32`) and produce a client config or the server's public key.
+  </Step>
+  <Step title="Enable DDNS">
+    If your router supports built-in DDNS (e.g. `yourname.tplinkdns.com`), enable it. This gives you a stable hostname even if your ISP changes your public IP.
+  </Step>
+  <Step title="Export or note the client config">
+    Download the `.conf` file, or copy the server public key, endpoint address, and allowed IPs. You will use these in the WiCAN UI.
+  </Step>
+</Steps>
+
+<Warning>
+  If your ISP uses Carrier Grade NAT (CGNAT), inbound UDP packets may not reach your router. In that case, you need a cloud VPS relay or a WireGuard "reverse tunnel" approach.
+</Warning>
+
+## UI overview
+
+In the WiCAN web UI (e.g. `http://wican.local`):
+
+1. Click the **VPN** tab in the navigation bar.
+2. Select **WireGuard** from the VPN type selector.
+3. Choose between **Import Config** and **Manual Entry** modes.
+
+A status panel shows the current state: **Disconnected**, **Connecting…**, or **Connected**, plus the last error if any. RX and TX byte counters indicate active tunnel traffic.
+
+## Quick start — import a .conf file
+
+If you have a WireGuard client config file (e.g. exported from your router or VPN controller):
+
+<Steps>
+  <Step title="Go to VPN > WireGuard in the web UI">
+    Open the **VPN** tab and select **WireGuard**.
+  </Step>
+  <Step title="Click Import / Load Config">
+    Select your `.conf` file from your computer. A typical file looks like:
+
+    ```ini
+    [Interface]
+    PrivateKey = <client_private_key>
+    Address = 10.10.0.10/32
+    DNS = 10.10.0.1
+
+    [Peer]
+    PublicKey = <server_public_key>
+    PresharedKey = <optional_psk>
+    AllowedIPs = 10.10.0.0/24
+    Endpoint = vpn.example.com:51820
+    PersistentKeepalive = 25
+    ```
+  </Step>
+  <Step title="Review the parsed values">
+    WiCAN parses the file and populates all fields. Verify the endpoint, public key, and allowed IPs are correct.
+  </Step>
+  <Step title="Press Save, then Connect">
+    Click **Save** to persist the configuration, then click **Connect**. The status panel should transition to **Connected** within a few seconds.
+  </Step>
+  <Step title="Verify the connection">
+    Confirm the status shows **Connected** and that the RX/TX byte counters are incrementing as traffic flows.
+  </Step>
+</Steps>
+
+## Manual configuration
+
+Use manual entry if you do not have a full `.conf` file, or if you want to configure individual fields directly.
+
+| Field | Description |
+|-------|-------------|
+| **Local private key** | The device's WireGuard private key. Keep this secret — never share it. |
+| **Local public key** | Derived automatically from the private key. Read-only. Share this with your server. |
+| **Assigned tunnel address** | IP address for WiCAN in the tunnel (e.g. `10.10.0.10/32`), assigned by your server. |
+| **DNS** | Optional DNS server to use over the tunnel (e.g. `10.10.0.1`). |
+| **Peer public key** | Your WireGuard server's public key (base64 string). |
+| **Preshared key** | Optional additional symmetric key for defense-in-depth. |
+| **Endpoint** | Server address and UDP port (e.g. `vpn.example.com:51820`). |
+| **Allowed IPs** | Comma-separated CIDR ranges to route through the tunnel. Use `0.0.0.0/0` for a full tunnel or your server's subnet for a split tunnel. |
+| **Persistent keepalive** | Interval in seconds to send keepalive packets. Set to `25` when WiCAN is behind NAT. Leave blank to disable. |
+
+<Steps>
+  <Step title="Generate keys">
+    Click **Generate Keys** to create a new private/public key pair. The public key field will populate automatically.
+  </Step>
+  <Step title="Add the public key to your server">
+    Copy the **Local public key** and add it to your WireGuard server's peer list, along with the tunnel IP you intend to assign (e.g. `10.10.0.10/32`).
+  </Step>
+  <Step title="Fill in the remaining fields">
+    Enter the server's public key, endpoint, allowed IPs, and any optional preshared key or DNS.
+  </Step>
+  <Step title="Save and connect">
+    Click **Save**, then **Connect**. Confirm the status shows **Connected**.
+  </Step>
+</Steps>
+
+## Use case reference
+
+| Use case | Recommended allowed IPs | Notes |
+|----------|------------------------|-------|
+| Remote diagnostics only | Your server subnet only (e.g. `10.10.0.0/24`) | Minimal routing, lower latency impact |
+| Full remote management | `0.0.0.0/0, ::/0` | All device traffic goes through the tunnel |
+| Split tunnel (mixed) | Specific service subnets + telemetry endpoint | Fine-grained control over routed traffic |
+
+## Security best practices
+
+- Treat the private key as a secret. Never share it or include it in screenshots.
+- Enable a preshared key for defense-in-depth, especially on shared or semi-public networks.
+- Limit **Allowed IPs** to only the networks WiCAN needs to reach — avoid full-tunnel mode unless necessary.
+- Rotate keys every 6–12 months or after suspected compromise.
+- Keep WiCAN PRO firmware updated to receive cryptographic and security patches.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Status is stuck on Connecting">
+    The server endpoint may be unreachable. Check:
+    - The endpoint hostname resolves to a public IP.
+    - UDP traffic on the configured port is not blocked by a firewall.
+    - The WiCAN PRO has internet access via its WiFi connection.
+  </Accordion>
+  <Accordion title="Disconnected immediately after connecting">
+    This is usually a key mismatch. Re-check that the **Peer public key** matches the server's public key exactly, and that the server has the correct WiCAN public key in its peer list.
+  </Accordion>
+  <Accordion title="Connected but RX bytes stay at zero">
+    Traffic is not returning to WiCAN. Check:
+    - **Allowed IPs** includes the server's subnet.
+    - The server has a return route to the WiCAN tunnel IP (`10.10.0.10/32`).
+    - No server-side firewall is dropping return traffic.
+  </Accordion>
+  <Accordion title="Frequent handshake renegotiations">
+    Set **Persistent keepalive** to `25`. This is normal when the device is behind NAT and there is no keepalive configured.
+  </Accordion>
+  <Accordion title="Tunnel works, then stops after some time">
+    The server's peer entry may have been removed, or the server's public IP changed. Confirm the server peer entry is intact and that the endpoint still resolves correctly.
+  </Accordion>
+  <Accordion title="Cannot reach an internal service through the tunnel">
+    Add the relevant subnet to **Allowed IPs** and ensure any server-side firewall rules permit traffic to that service from the WiCAN tunnel IP.
+  </Accordion>
+</AccordionGroup>
+
+### Additional diagnostics
+
+- Check that WiCAN PRO's system clock is synchronised (major clock drift breaks WireGuard handshakes). Verify NTP sync under the **System** tab.
+- If experiencing packet fragmentation (especially over cellular), try lowering the MTU to `1280`–`1380` if your firmware exposes that setting.
+
+## Key rotation
+
+<Steps>
+  <Step title="Generate new keys in the WiCAN UI">
+    In manual mode, click **Generate Keys** to create a new key pair. Do not save yet.
+  </Step>
+  <Step title="Update the server peer entry">
+    Replace the old WiCAN public key in your server's WireGuard peer list with the new public key. Keep the same tunnel IP assigned.
+  </Step>
+  <Step title="Save and reconnect">
+    Save the new configuration on WiCAN and click **Connect**. Verify traffic flows as expected.
+  </Step>
+  <Step title="Remove old key references">
+    Delete any remaining references to the old public key from your server or any other peer configurations.
+  </Step>
+</Steps>
+
+## Disabling or removing WireGuard
+
+- To temporarily disconnect without losing settings, click **Disconnect** and toggle **Auto Connect** off (if present).
+- To fully remove the configuration, click **Delete Config** or clear all fields and save.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Can I use multiple WireGuard profiles?">
+    The current firmware supports one active WireGuard profile at a time. You can export the current config, clear it, and import a different `.conf` file to switch profiles.
+  </Accordion>
+  <Accordion title="Does WiCAN auto-reconnect after a power cycle?">
+    Yes — if the profile was saved and auto-connect is enabled. Otherwise, press **Connect** manually after the device boots.
+  </Accordion>
+  <Accordion title="Can I push a new config remotely?">
+    Not directly via the VPN tunnel itself. You must pre-provision the device or use another remote management channel.
+  </Accordion>
+</AccordionGroup>

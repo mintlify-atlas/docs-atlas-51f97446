@@ -1,0 +1,52 @@
+---
+title: "Home Assistant overview"
+description: "Integrate WiCAN with Home Assistant to monitor real-time vehicle data on your dashboards using the official HACS integration or MQTT."
+---
+
+WiCAN integrates with [Home Assistant](https://www.home-assistant.io/) to display live vehicle parameters — such as battery state of charge, engine temperature, and speed — directly on your HA dashboards. Two integration methods are available.
+
+<Tip>
+  The official HACS integration is the recommended approach. It communicates over HTTP and requires no MQTT broker.
+</Tip>
+
+## How it works
+
+WiCAN periodically polls your vehicle's ECU for OBD-II parameters using the **AutoPID** protocol. Results are made available via an HTTP endpoint on the device. The official Home Assistant integration reads from that endpoint and creates sensor entities automatically — no manual YAML configuration required.
+
+The MQTT integration is an alternative for setups that already use an MQTT broker, or for use with applications other than Home Assistant.
+
+## Prerequisites
+
+Before setting up either integration, ensure the following:
+
+- WiCAN is connected to the same WiFi network as your Home Assistant instance.
+- The **Protocol** in WiCAN's **Settings** tab is set to `AutoPID`.
+- A vehicle model is selected (or standard PIDs are configured) on the **Automate** tab.
+
+## Choose an integration method
+
+<CardGroup cols={2}>
+  <Card title="Official integration (HACS)" icon="house-signal" href="/home-assistant/integration-setup">
+    Step-by-step setup for the official `ha-wican` integration. Recommended for most users — no MQTT broker needed.
+  </Card>
+  <Card title="MQTT integration" icon="tower-broadcast" href="/home-assistant/mqtt">
+    Connect WiCAN to Home Assistant via an MQTT broker. Useful if you already run Mosquitto or want raw MQTT access.
+  </Card>
+</CardGroup>
+
+## What you get
+
+Once connected, Home Assistant will automatically discover the vehicle parameters your WiCAN is polling and create sensor entities for each one. Common examples include:
+
+- Battery state of charge (EV/hybrid)
+- Engine coolant temperature
+- Vehicle speed
+- Engine RPM
+- Fuel level
+- Odometer reading
+
+Available parameters depend on your vehicle model and the PIDs configured on the **Automate** tab.
+
+<Note>
+  If your vehicle is an EV or hybrid and is not in the supported vehicle list, open an issue on the [wican-fw GitHub repository](https://github.com/meatpiHQ/wican-fw/issues). The community can help add support for your model.
+</Note>

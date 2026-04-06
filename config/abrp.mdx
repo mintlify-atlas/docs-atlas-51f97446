@@ -1,0 +1,179 @@
+---
+title: "ABRP integration"
+description: "Push live vehicle telemetry from WiCAN PRO to A Better Routeplanner (ABRP) for accurate EV range and trip planning."
+---
+
+The ABRP destination lets WiCAN PRO send live vehicle and battery telemetry directly to [A Better Routeplanner](https://abetterrouteplanner.com), keeping its trip planning and energy prediction models up to date with real vehicle state.
+
+<Note>
+  **WiCAN PRO only.** The ABRP destination requires TLS support and is not available on standard WiCAN.
+</Note>
+
+Instead of the generic JSON format used by the HTTPS destination, the ABRP integration sends a compact URL-encoded form payload containing only the fields ABRP expects. Internal WiCAN parameter names are automatically mapped to ABRP's field names before each POST.
+
+## How it works
+
+On each cycle, WiCAN PRO:
+
+1. Builds a grouped telemetry snapshot from all enabled PIDs.
+2. Maps internal parameter names to ABRP's expected field names.
+3. URL-encodes the result into a single-line form body.
+4. Sends an HTTPS POST to ABRP's telemetry endpoint.
+
+The ABRP destination can run concurrently with MQTT and other HTTPS destinations.
+
+## Prerequisites
+
+| Item | Description |
+|------|-------------|
+| ABRP account | Free or premium at [abetterrouteplanner.com](https://abetterrouteplanner.com) |
+| Vehicle added in ABRP | Create or select the vehicle that will receive the data |
+| API token | Obtained from **ABRP Settings → Live Data → OBD**. One token per vehicle. |
+| Grouping enabled | **Automate** tab → **Grouping** must be set to **Enable** |
+| Internet access | WiCAN PRO must be able to reach the ABRP telemetry endpoint |
+
+## Setup
+
+<Steps>
+  <Step title="Get your ABRP API token">
+    Log into ABRP, select your vehicle, and go to **Settings → Live Data / OBD**. Copy the API token shown for that vehicle. Each vehicle has a distinct token.
+  </Step>
+  <Step title="Enable grouping in the Automate tab">
+    In the WiCAN web UI, click the **Automate** tab. Set **Grouping** to **Enable** at the top of the page. Without this, no telemetry payload is produced.
+  </Step>
+  <Step title="Add an ABRP API destination">
+    Click **Add Destination** and set **Type** to `ABRP API`.
+  </Step>
+  <Step title="Enter the API token">
+    Paste your ABRP API token exactly — no leading or trailing spaces.
+  </Step>
+  <Step title="Set the cycle interval">
+    Set **Cycle (ms)** to `5000` as a starting point. The minimum is `1000` ms.
+  </Step>
+  <Step title="Set the certificate set">
+    Leave **Cert Set** as `default` unless you are routing through a proxy with a private CA.
+  </Step>
+  <Step title="Enable and save">
+    Tick the **Enabled** checkbox, then scroll to the bottom of the page and press **Submit Changes**.
+  </Step>
+  <Step title="Verify in ABRP">
+    Open the ABRP app or web interface, select your vehicle, and check the **Live Data** view. After one full cycle interval, you should see SOC, speed, and other available fields updating.
+  </Step>
+</Steps>
+
+## Field mapping
+
+WiCAN automatically translates its internal parameter names to the field names ABRP expects. Only fields with available data are included in each POST — missing metrics are silently omitted.
+
+| Internal name | ABRP field | Unit | Notes |
+|---------------|------------|------|-------|
+| `soc` | `soc` | % | State of charge |
+| `soh` | `soh` | % | State of health |
+| `speed` | `speed` | km/h | Falls back to `vehicle_speed` if `speed` is absent |
+| `vehicle_speed` | `speed` | km/h | Used only when `speed` is not available |
+| `latitude` | `lat` | degrees | Requires a GPS/GNSS data source |
+| `longitude` | `lon` | degrees | Requires a GPS/GNSS data source |
+| `elevation` | `elevation` | m | Requires a GPS/GNSS data source |
+| `is_charging` | `is_charging` | — | `1` = charging, `0` = not charging |
+| `battery_current` | `current` | A | Negative = discharging (standard convention) |
+| `battery_voltage` | `voltage` | V | Pack voltage |
+| `battery_temp` | `batt_temp` | °C | Battery temperature |
+| `ambient_temp` | `ext_temp` | °C | Ambient/exterior temperature |
+| `power` | `power` | kW | Positive = consuming, negative = regenerating |
+| `car_model` | `car_model` | — | ABRP vehicle code |
+
+Custom PIDs are not automatically mapped to ABRP fields unless explicitly supported by the firmware.
+
+## Payload format
+
+Payloads are sent as `application/x-www-form-urlencoded`. Example (wrapped for readability):
+
+```text
+utc=1730000000&soc=54.1&speed=23.4&lat=40.71278&lon=-74.00611
+&voltage=398.2&current=-42.3&power=16.8&is_charging=0
+&car_model=tesla:model3:2021
+```
+
+Field notes:
+
+- `utc` — epoch seconds in UTC, derived from NTP-synchronised device clock
+- Speed is in km/h
+- Temperatures are in °C
+- Power is in kW
+- Current sign convention: negative = discharging
+
+## Rate and cycle recommendations
+
+| Setting | Recommendation | Reason |
+|---------|----------------|--------|
+| Cycle (ms) | `5000`–`10000` | Good balance of data freshness and ABRP server load |
+| Minimum cycle | `1000` | Firmware enforced lower bound |
+| On network error | Automatic backoff | Firmware reduces retry frequency to avoid storms |
+
+Lowering the cycle interval below 5000 ms increases bandwidth usage and is unlikely to meaningfully improve ABRP routing predictions in most driving scenarios.
+
+## Verifying data in ABRP
+
+1. Open ABRP (web or mobile app).
+2. Select the target vehicle.
+3. Ensure **Live Data / OBD** input is enabled in vehicle settings.
+4. Drive (or change charging state) to trigger value changes.
+5. If no data appears after 2–3 intervals, proceed to troubleshooting.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized">
+    The API token is invalid or has expired. Re-copy the token from **ABRP Settings → Live Data** for the correct vehicle. Ensure there are no extra spaces before pasting.
+  </Accordion>
+  <Accordion title="No data appears in ABRP after several cycles">
+    Check the following:
+    - **Grouping** is set to **Enable** in the Automate tab.
+    - The destination **Enabled** checkbox is ticked.
+    - WiCAN PRO has internet access.
+    - At least one supported PID (e.g. SOC or speed) is enabled and returning data.
+  </Accordion>
+  <Accordion title="Specific fields are missing (e.g. SOC, temperature)">
+    The corresponding PID must be enabled in the **Automate** tab and supported by your vehicle's ECU. Check **Supported Parameters** and enable the relevant Standard or Specific PIDs. Update firmware if a recently added PID is not yet mapped.
+  </Accordion>
+  <Accordion title="Location data (lat/lon) is not appearing">
+    Position data requires a GPS or GNSS source connected to WiCAN PRO. If no GPS hardware is present, location fields will be omitted from the payload.
+  </Accordion>
+  <Accordion title="Charging status appears incorrect">
+    This may be due to a PID mapping mismatch or stale firmware. Update to the latest WiCAN PRO firmware and verify that the `is_charging` PID is enabled and returning the correct value.
+  </Accordion>
+  <Accordion title="Posts are sporadic or intermittent">
+    WiFi signal instability is the most common cause. Try increasing the cycle interval, moving the vehicle closer to the access point, or using a 2.4 GHz network for better range.
+  </Accordion>
+  <Accordion title="TLS verification failure">
+    WiCAN PRO's system clock may be out of sync, causing certificate validation to fail. Verify NTP synchronisation under the **System** tab. Ensure the device has internet access on boot.
+  </Accordion>
+</AccordionGroup>
+
+## Security
+
+<Warning>
+  Treat your ABRP API token as a secret. Anyone with the token can push arbitrary telemetry to your vehicle profile.
+</Warning>
+
+- Use one token per device. This allows you to revoke access for a specific device without affecting others.
+- Rotate the token when a WiCAN unit is retired, transferred, or lost.
+- Never publish the raw token in screenshots, logs, or public repositories.
+- Avoid routing ABRP traffic through an untrusted proxy — if you do, supply the proxy's CA under **System → Certificates** and select it as the cert set.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="HTTPS destinations" icon="globe" href="/config/https">
+    Push telemetry to custom JSON endpoints alongside ABRP.
+  </Card>
+  <Card title="Automate & OBD usage" icon="gauge-high" href="/config/automate/usage">
+    Configure PID polling and grouping for telemetry collection.
+  </Card>
+  <Card title="Supported parameters" icon="list" href="/config/automate/supported-parameters">
+    View all available OBD-II parameters and their internal names.
+  </Card>
+  <Card title="WireGuard VPN" icon="shield" href="/config/vpn-wireguard">
+    Secure remote access for WiCAN PRO over an encrypted tunnel.
+  </Card>
+</CardGroup>

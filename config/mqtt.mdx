@@ -1,0 +1,229 @@
+---
+title: "MQTT configuration"
+description: "Stream CAN frames and OBD data to an MQTT broker as JSON. Configure topics, credentials, and battery alerts for your WiCAN device."
+---
+
+WiCAN includes a built-in MQTT client that publishes CAN frames and OBD-II data to a broker in real time. Each message is a JSON object, and the device subscribes to a transmit topic so you can also send frames back to the CAN bus.
+
+<Warning>
+  Only use MQTT with a **local, private broker**. Publishing raw CAN frames to a public broker exposes your vehicle's internal network to anyone subscribed to those topics. WiCAN PRO supports MQTTS (TLS-encrypted MQTT); standard WiCAN supports plain MQTT only.
+</Warning>
+
+## Prerequisites
+
+- WiCAN connected to your WiFi network (AP+Station mode)
+- An MQTT broker running on your local network (e.g. Mosquitto, Home Assistant MQTT add-on)
+- Device ID — shown on the **Status** tab of the web UI
+
+## Configuration fields
+
+The following fields are available in the **Settings** tab under the MQTT section.
+
+| Field | Description |
+|-------|-------------|
+| `mqtt_en` | Enable or disable the MQTT client |
+| `mqtt_url` | Broker hostname or IP address (e.g. `192.168.1.10` or `broker.local`) |
+| `mqtt_port` | Broker port (default: `1883`; use `8883` for MQTTS on WiCAN PRO) |
+| `mqtt_user` | Broker username (leave blank if authentication is disabled) |
+| `mqtt_pass` | Broker password |
+| `mqtt_tx_topic` | Topic WiCAN **subscribes** to for outbound CAN frames |
+| `mqtt_rx_topic` | Topic WiCAN **publishes** received CAN frames to |
+| `mqtt_status_topic` | Topic WiCAN publishes its online/offline status to |
+| `mqtt_tx_en` | Enable the TX (outbound) topic subscription |
+| `mqtt_rx_en` | Enable the RX (inbound) topic publication |
+| `mqtt_elm327_log` | Log ELM327 session data to the MQTT broker |
+
+## Setup
+
+<Steps>
+  <Step title="Enable MQTT in the Settings tab">
+    Open the device web UI (e.g. `http://wican.local` or `http://192.168.80.1`). Navigate to the **Settings** tab and set **MQTT** to **Enable**.
+  </Step>
+  <Step title="Enter broker details">
+    Set the broker URL or IP address and port. If your broker requires authentication, enter the username and password.
+  </Step>
+  <Step title="Configure topics">
+    The default topics are derived from your device ID. You can customise them or leave the defaults:
+
+    ```
+    TX topic:     wican/{device_id}/can/tx
+    RX topic:     wican/{device_id}/can/rx
+    Status topic: wican/{device_id}/status
+    ```
+
+    Replace `{device_id}` with the 12-character hex ID shown on the **Status** tab.
+  </Step>
+  <Step title="Save and verify">
+    Click **Submit Changes**. The device will connect to the broker and publish a status message. Verify the connection by subscribing to the status topic on your broker:
+
+    ```bash
+    mosquitto_sub -h 192.168.1.10 -t "wican/+/status"
+    ```
+
+    You should see `{"status": "online"}` appear within a few seconds.
+  </Step>
+</Steps>
+
+## Topic reference
+
+### Status topic
+
+When the device connects or disconnects, it publishes to the status topic.
+
+- **Topic:** `wican/{device_id}/status`
+- **Payload:** `{"status": "online"}` or `{"status": "offline"}`
+
+### Receiving CAN frames (RX)
+
+Subscribe to the RX topic to receive all CAN frames observed on the bus. Each message may contain multiple frames.
+
+- **Topic:** `wican/{device_id}/can/rx`
+- **Payload:**
+
+```json
+{
+  "bus": 0,
+  "type": "rx",
+  "ts": 34610,
+  "frame": [
+    { "id": 123, "dlc": 8, "rtr": false, "extd": false, "data": [1, 2, 3, 4, 5, 6, 7, 8] },
+    { "id": 124, "dlc": 8, "rtr": false, "extd": true,  "data": [1, 2, 3, 4, 5, 6, 7, 8] }
+  ]
+}
+```
+
+### Transmitting CAN frames (TX)
+
+Publish to the TX topic to send frames onto the CAN bus.
+
+- **Topic:** `wican/{device_id}/can/tx`
+- **Payload:**
+
+```json
+{
+  "bus": "0",
+  "type": "tx",
+  "frame": [
+    { "id": 2015, "dlc": 8, "rtr": false, "extd": false, "data": [2, 1, 70, 170, 170, 170, 170, 170] }
+  ]
+}
+```
+
+Frame field reference:
+
+| Field | Description |
+|-------|-------------|
+| `bus` | Always `0` — reserved for future use |
+| `type` | `"tx"` or `"rx"` |
+| `id` | CAN frame ID (11-bit or 29-bit decimal) |
+| `dlc` | Data length code — `0` to `8` |
+| `rtr` | Remote transmission request — `true` or `false` |
+| `extd` | Extended (29-bit) frame — `true` for 29-bit ID, `false` for 11-bit |
+| `data` | Array of up to 8 bytes |
+| `ts` | Timestamp in milliseconds (RX frames only) |
+
+### OBD-II PID requests over MQTT
+
+Send standard OBD-II PID requests by publishing to the TX topic with the appropriate ECU ID.
+
+<Tabs>
+  <Tab title="11-bit (standard)">
+    Use ECU ID `2015` (decimal for `0x7DF`) with `"extd": false`.
+
+    ```json
+    {
+      "bus": "0",
+      "type": "tx",
+      "frame": [{ "id": 2015, "dlc": 8, "rtr": false, "extd": false, "data": [2, 1, 70, 170, 170, 170, 170, 170] }]
+    }
+    ```
+  </Tab>
+  <Tab title="29-bit (extended)">
+    Use ECU ID `417018865` (decimal for `0x18DB33F1`) with `"extd": true`.
+
+    ```json
+    {
+      "bus": "0",
+      "type": "tx",
+      "frame": [{ "id": 417018865, "dlc": 8, "rtr": false, "extd": true, "data": [2, 1, 70, 170, 170, 170, 170, 170] }]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+**Example: battery SoC**
+
+Request (PID `0x5B`):
+
+```json
+{"bus":"0","type":"tx","frame":[{"id":2015,"dlc":8,"rtr":false,"extd":false,"data":[2,1,91,170,170,170,170,170]}]}
+```
+
+Response:
+
+```json
+{"bus":"0","type":"rx","ts":51561,"frame":[{"id":2024,"dlc":8,"rtr":false,"extd":false,"data":[3,65,91,170,0,0,0,0]}]}
+```
+
+SoC = `(170 × 100) / 255 = 66.67%`
+
+## CAN-to-JSON filtering
+
+The filter feature converts specific CAN frames into named JSON values, applies a mathematical expression, and publishes the result to the MQTT broker at a configurable interval. When any filter is active, all unmatched CAN frames are suppressed.
+
+<Note>
+  Adding a filter causes WiCAN to ignore all CAN frames that do not match a configured filter entry. Only the filtered output is forwarded to MQTT.
+</Note>
+
+Filter configuration parameters:
+
+| Parameter | Description |
+|-----------|-------------|
+| **CAN ID** | Frame ID in decimal |
+| **Name** | JSON key for the extracted value |
+| **PID** | PID number in decimal; set to `-1` for non-PID frames |
+| **Index** | Byte index of the PID byte in the response (usually `2`); ignored when PID is `-1` |
+| **Start bit** | Bit position to begin extracting the value from |
+| **Bit length** | Number of bits to extract |
+| **Expression** | Math expression applied to the extracted value; use `V` as the variable (e.g. `V * 0.25`) |
+| **Cycle** | Publish interval in milliseconds (`100`–`10000`) |
+
+Filtered output is published as individual JSON objects:
+
+```json
+{"VehicleSpeed": 23.000000}
+{"EngineSpeed": 1165.000000}
+```
+
+## Battery alert via MQTT
+
+WiCAN can connect to a separate WiFi network and publish a battery voltage alert when the voltage falls below a configurable threshold. This is useful for parking scenarios where the vehicle's main network is unavailable.
+
+Configure the following fields in the **Settings** tab:
+
+| Field | Description |
+|-------|-------------|
+| `batt_alert` | Enable battery voltage alerting |
+| `batt_alert_ssid` | SSID of the alert network (can differ from your main network) |
+| `batt_alert_pass` | Password for the alert network |
+| `batt_alert_volt` | Voltage threshold that triggers the alert |
+| `batt_alert_url` | Broker hostname or IP for the alert |
+| `batt_alert_port` | Broker port for the alert |
+| `batt_alert_topic` | Topic to publish the alert message to |
+| `batt_mqtt_user` | MQTT username for the alert broker |
+| `batt_mqtt_pass` | MQTT password for the alert broker |
+
+<Tip>
+  The alert network can be the same as your main network, or a dedicated IoT VLAN. Using a separate SSID lets you post alerts even if the primary broker is on a different segment.
+</Tip>
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="MQTT API reference" icon="code" href="/api/mqtt-api">
+    Full message schema, filter expressions, and frame format details.
+  </Card>
+  <Card title="Home Assistant MQTT" icon="house" href="/home-assistant/mqtt">
+    Integrate WiCAN with Home Assistant using MQTT discovery.
+  </Card>
+</CardGroup>

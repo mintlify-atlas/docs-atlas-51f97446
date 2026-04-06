@@ -1,0 +1,76 @@
+---
+title: "Sleep mode & battery alerts"
+description: "Configure WiCAN to sleep when the engine is off and send alerts when battery voltage drops too low."
+---
+
+WiCAN can be permanently attached to a vehicle's OBD-II port without draining the battery. It monitors the battery voltage and enters a low-power sleep state when the engine is off.
+
+## How sleep mode works
+
+When the engine is running, the alternator keeps the battery voltage around **13.5 V**. When you switch the engine off, the voltage drops to around **12.8 V** (fully charged battery).
+
+WiCAN watches for this voltage drop. If the voltage stays below the configured sleep threshold for **3 minutes**, WiCAN enters sleep mode:
+
+- WiFi and BLE are disabled
+- Current draw drops below **1 mA**
+
+When the engine starts again and the voltage rises above the wake threshold, WiCAN immediately wakes up and re-enables WiFi and BLE.
+
+Sleep mode is **disabled by default**. Enable it in the **Settings** tab of the web interface.
+
+## Configuration
+
+All sleep mode settings are in the **Settings** tab under the **Sleep Mode** section.
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `sleep_volt` | Battery voltage below which the sleep timer starts | 13.1 V |
+| `wakeup_volt` | Battery voltage above which WiCAN wakes from sleep | 13.5 V |
+| `sleep_time` | How long voltage must stay below `sleep_volt` before sleeping (seconds) | 180 s (3 min) |
+| `wakeup_time` | Minimum time to stay awake after waking before sleep is re-evaluated | Configurable |
+
+<Tip>
+  The default sleep voltage of **13.1 V** works well for most vehicles. A running engine charges at approximately 13.5 V; a healthy stopped battery rests at 12.6–12.8 V. The 13.1 V threshold sits cleanly between these two states.
+</Tip>
+
+<Note>
+  Exact charging voltages vary between vehicle makes and models. Adjust `sleep_volt` and `wakeup_volt` if WiCAN wakes or sleeps unexpectedly on your vehicle.
+</Note>
+
+## Battery alert
+
+The battery alert feature sends a notification when the battery voltage drops below a configured threshold. This is useful if you own multiple vehicles that sit unused for weeks or months — WiCAN can warn you before the battery goes completely flat and needs a jump start.
+
+### Requirements
+
+Battery alerts require:
+
+1. **Sleep mode** must be enabled
+2. **Battery alert** must be enabled in the **Sleep Mode** section
+3. An MQTT broker reachable from WiCAN (over WiFi)
+
+### Alert configuration fields
+
+| Field | Description |
+|-------|-------------|
+| `batt_alert_volt` | Voltage threshold that triggers the alert |
+| `batt_alert_ssid` | WiFi SSID to connect to for sending the alert (if different from the main network) |
+| `batt_alert_pass` | Password for the alert WiFi network |
+| `batt_alert_url` | MQTT broker URL |
+| `batt_alert_port` | MQTT broker port |
+| `batt_alert_topic` | MQTT topic to publish the alert to |
+| `batt_mqtt_user` | MQTT broker username (if required) |
+| `batt_mqtt_pass` | MQTT broker password (if required) |
+
+You can configure a separate WiFi network for alerts. This is useful if your main station network is your home WiFi but the car is parked somewhere with a different network, such as a garage with a separate SSID.
+
+<Warning>
+  Battery alerts are sent over MQTT only. Make sure the MQTT broker is reachable from the network WiCAN connects to when sending the alert.
+</Warning>
+
+### How the alert sequence works
+
+1. Engine is switched off; battery voltage drops below `sleep_volt` for 3 minutes
+2. WiCAN enters sleep mode
+3. While in sleep mode, WiCAN continues to periodically check the battery voltage
+4. If voltage drops below `batt_alert_volt`, WiCAN briefly wakes up, connects to WiFi, sends the MQTT alert, then returns to sleep

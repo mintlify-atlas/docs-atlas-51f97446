@@ -1,97 +1,61 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "WiCAN Firmware"
+description: "Open-source ESP32-based CAN bus adapter firmware for vehicle diagnostics, telemetry, and integration with popular tools and smart home platforms."
 ---
 
-## Setting up
+WiCAN is a powerful, open-source firmware for the WiCAN OBD-II and USB CAN adapters. Connect your vehicle to WiFi or BLE, poll real-time OBD-II parameters, stream CAN frames over MQTT, and integrate with Home Assistant — all with a browser-based configuration interface and no additional software required.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Connect your WiCAN to WiFi and access vehicle data in minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Hardware Overview" icon="microchip" href="/hardware-overview">
+    Learn about WiCAN, WiCAN PRO, and WiCAN-USB hardware variants.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Automate & OBD" icon="gauge-high" href="/config/automate/usage">
+    Periodically poll OBD-II PIDs and send telemetry via MQTT or HTTP.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Home Assistant" icon="house" href="/home-assistant/overview">
+    Integrate with Home Assistant using the official HACS integration.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What is WiCAN?
 
-Everything you need to create world-class documentation.
+WiCAN is an ESP32-based CAN bus adapter available in OBD-II and USB form factors. It bridges your vehicle's CAN bus to WiFi and Bluetooth, enabling real-time diagnostics, data logging, and smart home integration without proprietary software.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="MQTT Telemetry" icon="tower-broadcast" href="/config/mqtt">
+    Stream CAN frames and OBD data to any MQTT broker as JSON.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="ELM327 Emulation" icon="plug" href="/config/can">
+    Works with OBD apps via ELM327 protocol over TCP or BLE.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="WireGuard VPN" icon="shield" href="/config/vpn-wireguard">
+    Secure remote access to your vehicle data from anywhere.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="CAN Tools" icon="wrench" href="/integrations/socketcan">
+    Compatible with SocketCAN, SavvyCAN, BUSmaster, and RealDash.
   </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## Getting started
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Steps>
+  <Step title="Connect to the WiCAN access point">
+    Power on your WiCAN by plugging it into the OBD-II port. Connect to the WiFi network named **WiCAN_xxxxxxx** using the default password `@meatpi#`.
+  </Step>
+  <Step title="Open the configuration interface">
+    Navigate to `http://192.168.80.1` in your browser (or `http://192.168.0.10` for WiCAN PRO). You will see the device dashboard with Status, Settings, Automate, and System tabs.
+  </Step>
+  <Step title="Connect to your home network">
+    Go to the **Settings** tab, set **Mode** to `AP+Station`, enter your WiFi SSID and password, and click **Submit Changes**.
+  </Step>
+  <Step title="Configure your protocol and start reading data">
+    Set the **Protocol** to `AutoPID`, configure your vehicle model on the **Automate** tab, and start receiving live vehicle data via MQTT or HTTP.
+  </Step>
+</Steps>
+
+<Note>
+  Always keep your firmware up to date. Visit the [Firmware Update](/firmware-update) guide to learn how to update via OTA or USB.
+</Note>

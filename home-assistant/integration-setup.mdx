@@ -1,0 +1,113 @@
+---
+title: "Home Assistant integration setup"
+description: "Configure WiCAN and install the official ha-wican HACS integration to monitor your vehicle in Home Assistant."
+---
+
+This guide walks through configuring the WiCAN device and installing the official [ha-wican](https://github.com/jay-oswald/ha-wican) integration in Home Assistant. The integration communicates over HTTP — no MQTT broker is required.
+
+## Device setup
+
+Complete these steps on the WiCAN device before touching Home Assistant.
+
+<Steps>
+  <Step title="Connect to the WiCAN access point">
+    Plug WiCAN into your vehicle's OBD-II port. On your computer or phone, connect to the WiFi network named **WiCAN_xxxxxxx**. The default password is `@meatpi#`.
+
+    <Warning>
+      Change the default AP password before deploying WiCAN in a shared environment.
+    </Warning>
+  </Step>
+
+  <Step title="Note the mDNS name">
+    Open `http://192.168.80.1` in your browser to access the WiCAN interface. Go to the **Status** tab and record the mDNS name — it looks like `wican_xxxxxxxxxxxx.local`, where `xxxxxxxxxxxx` is the device's unique ID. You will need this name later.
+  </Step>
+
+  <Step title="Connect WiCAN to your home WiFi">
+    Go to the **Settings** tab. Set **Mode** to `AP+Station`, then enter your home WiFi **SSID** and **Password**. This allows WiCAN to join the same network as Home Assistant while keeping its own access point available during setup.
+  </Step>
+
+  <Step title="Set the protocol to AutoPID">
+    On the **Settings** tab, set **Protocol** to `AutoPID`. This enables the periodic PID polling that the integration reads from.
+  </Step>
+
+  <Step title="Submit and reboot">
+    Click **Submit Changes**. WiCAN will save the configuration and reboot automatically.
+  </Step>
+
+  <Step title="Reconnect via mDNS">
+    Disconnect from the WiCAN access point and reconnect to your home WiFi. Open your browser and navigate to the mDNS name you recorded earlier, for example `http://wican_xxxxxxxxxxxx.local`.
+
+    <Tip>
+      If mDNS does not resolve, check your router's DHCP client list for the IP address assigned to WiCAN and use that instead. mDNS resolution can be unreliable on some Windows networks.
+    </Tip>
+  </Step>
+
+  <Step title="Enable vehicle-specific settings">
+    In the WiCAN interface, go to the **Automate** tab and enable **Vehicle Specific**.
+  </Step>
+
+  <Step title="Fetch supported vehicle models">
+    Click the refresh button (⟳) next to **Vehicle Model** to download the latest list of supported vehicle profiles from the internet.
+  </Step>
+
+  <Step title="Select your vehicle model">
+    Choose your vehicle from the **Vehicle Model** dropdown.
+
+    <Note>
+      If your vehicle is an EV or hybrid and does not appear in the list, open an issue on [GitHub](https://github.com/meatpiHQ/wican-fw/issues) and the team will guide you through adding support for your model.
+
+      If your vehicle is not an EV or hybrid, you can instead scan for standard OBD-II PIDs. See the [Automate & OBD usage guide](/config/automate/usage#standard-pids) for instructions.
+    </Note>
+  </Step>
+
+  <Step title="Set the cycle time">
+    Set **Cycle Time (ms)** to the interval at which WiCAN should request data from the ECU. For example, `5000` polls every 5 seconds. Lower values give more frequent updates but increase bus traffic.
+  </Step>
+
+  <Step title="Store and reboot">
+    Click **Store** to save the Automate configuration. Then go to the **About** tab and click **Reboot** to restart the device with the new settings.
+  </Step>
+</Steps>
+
+## Home Assistant setup
+
+With WiCAN configured, install and connect the integration in Home Assistant.
+
+<Steps>
+  <Step title="Add the ha-wican repository to HACS">
+    The WiCAN integration is distributed through HACS as a custom repository.
+
+    1. In Home Assistant, open **HACS** from the sidebar.
+    2. Follow the [HACS guide for adding a custom repository](https://www.hacs.xyz/docs/faq/custom_repositories/).
+       - **Repository URL**: `https://github.com/jay-oswald/ha-wican`
+       - **Category**: Integration
+  </Step>
+
+  <Step title="Download the WiCAN integration">
+    After adding the repository, follow the [HACS guide for downloading a repository](https://www.hacs.xyz/docs/use/repositories/dashboard/#downloading-a-repository) to install the WiCAN integration. Home Assistant will prompt you to restart after installation.
+  </Step>
+
+  <Step title="Add the integration">
+    After restarting, go to **Settings** > **Devices & Services** > **Integrations**. Click **Add Integration** and search for **WiCAN**.
+  </Step>
+
+  <Step title="Enter the mDNS name">
+    When prompted, enter the mDNS name you recorded during device setup — for example, `wican_xxxxxxxxxxxx.local`. Home Assistant will connect to the device and create sensor entities for each vehicle parameter WiCAN is polling.
+  </Step>
+</Steps>
+
+After completing setup, your vehicle parameters will appear as sensor entities under the WiCAN device in **Settings** > **Devices & Services**. You can add these sensors to any Home Assistant dashboard.
+
+## Beta versions
+
+The integration occasionally releases beta versions for testing upcoming features. To install a beta:
+
+1. Open the HACS dashboard and navigate to the WiCAN integration.
+2. Click the three-dot menu in the top-right corner and select **Redownload**.
+3. Expand **Need a different version?** and select the desired beta version from the dropdown.
+4. Click **Download** and wait for the "Restart required by WiCAN" notification to appear in Home Assistant.
+5. Restart Home Assistant.
+
+<Warning>
+  Rolling back from a beta to an older version may cause the integration to behave unexpectedly. Beta releases are not guaranteed to be stable.
+</Warning>

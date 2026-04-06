@@ -1,0 +1,84 @@
+---
+title: "Introduction"
+description: "WiCAN is an ESP32-based CAN bus adapter for vehicle diagnostics, OBD-II monitoring, and CAN bus development."
+---
+
+## What is WiCAN?
+
+WiCAN is an open-source, ESP32-based CAN bus adapter designed for car diagnostics, vehicle telemetry, and general CAN bus development. It connects directly to your vehicle's OBD-II port (or via USB for standalone CAN setups), then exposes CAN bus data over WiFi and BLE.
+
+The firmware supports ELM327 emulation, which means it works out of the box with most OBD apps that support WiFi or Bluetooth connections. It also includes MQTT telemetry, an AutoPID polling engine, sleep/wake on voltage, and a built-in web interface for configuration.
+
+<Note>
+  All documentation assumes you are running the latest firmware. Keep your device up to date to access the features described here.
+</Note>
+
+## Hardware variants
+
+WiCAN ships in three form factors:
+
+**WiCAN OBD-II** — Plugs directly into the OBD-II port under your dashboard. Uses PIN 6 (CANH) and PIN 14 (CANL) for standard high-speed CAN.
+
+**WiCAN USB** — A USB-to-CAN adapter with a screw-terminal connector. Powered via USB or the terminal connector, with an extended voltage range up to 36 V. Useful for bench development, 24 V truck setups, or any scenario where an OBD-II port is not available.
+
+**WiCAN PRO** — An advanced OBD-II adapter built on a dedicated OBD chip rather than a bare ESP32. Supports a significantly wider range of vehicle protocols and carries full firmware feature access.
+
+## WiCAN PRO is recommended
+
+<Warning>
+  The original WiCAN hardware has memory constraints that limit its ability to receive future firmware updates. WiCAN PRO does not have this limitation.
+</Warning>
+
+MeatPi strongly recommends ordering WiCAN PRO because:
+
+- It uses an **advanced OBD chip** with broader vehicle compatibility.
+- It receives **full access to the latest features** and firmware updates.
+- It offers **better long-term support** than the original WiCAN hardware.
+- It adds protocols the original WiCAN cannot support: MS-CAN, GMLAN, J1850-PWM/VPW, ISO 9141-2, ISO 14230-4, and more.
+
+## Key capabilities
+
+| Capability | WiCAN PRO | WiCAN |
+|---|---|---|
+| WiFi (AP + Station) | Yes | Yes |
+| BLE | Yes | Yes |
+| USB host interface | Yes | No |
+| ELM327 emulation | v2.3 | v1.5 |
+| ELM329 instructions | v2.2 | No |
+| STN instructions | Yes | No |
+| MQTT / MQTTS | Yes | MQTT only |
+| HTTP / HTTPS | Yes | HTTP only |
+| WireGuard VPN | Yes | No |
+| Home Assistant Nabu Casa | Yes | No |
+| SD card logging | Yes | No |
+| AutoPID telemetry | Yes | Yes |
+| SocketCAN / slcan | Yes | Yes |
+| RealDash support | Yes | Yes |
+| Sleep mode | Yes | Yes |
+| MS-CAN (PIN 3/11) | Yes | No |
+| GM High-Speed (PIN 12/13) | Yes | No |
+| Single Wire CAN GMLAN (PIN 1) | Yes | No |
+| J1850-PWM / J1850-VPW | Yes | No |
+| ISO 9141-2 | Yes | No |
+| ISO 14230-4 | Yes | No |
+
+## Where to buy
+
+WiCAN and WiCAN PRO are available from [Mouser](https://www.mouser.com/c/?m=MeatPi) and [Crowd Supply](https://www.crowdsupply.com/meatpi-electronics).
+
+## Explore the docs
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Connect your WiCAN to your vehicle and home network in minutes.
+  </Card>
+  <Card title="Hardware overview" icon="microchip" href="/hardware-overview">
+    Pinouts, supported CAN rates, and variant comparison.
+  </Card>
+  <Card title="Firmware update" icon="arrow-up-from-bracket" href="/firmware-update">
+    Update via OTA or USB flash using ESPTool or the Espressif flash tool.
+  </Card>
+  <Card title="Automate & OBD" icon="gauge" href="/config/automate/usage">
+    Poll vehicle PIDs and stream data over MQTT or HTTP.
+  </Card>
+</CardGroup>

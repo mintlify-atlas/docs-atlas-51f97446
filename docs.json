@@ -1,122 +1,97 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "WiCAN Firmware",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#4055b5",
+    "light": "#9cacdc"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/ce0b5528-90e8-4891-b615-1922395c8037.png",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/meatpiHQ/wican-fw"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/meatpiHQ/wican-fw"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "hardware-overview",
+              "firmware-update"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Configuration",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "config/wifi",
+              "config/can",
+              "config/sleep-mode",
+              "config/factory-reset"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Automate & OBD",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "config/automate/usage",
+              "config/automate/supported-vehicles",
+              "config/automate/vehicle-profiles",
+              "config/automate/supported-parameters"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Connectivity & Security",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "config/mqtt",
+              "config/https",
+              "config/vpn-wireguard",
+              "config/abrp"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Integrations",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Home Assistant",
             "pages": [
-              "api-reference/introduction"
+              "home-assistant/overview",
+              "home-assistant/integration-setup",
+              "home-assistant/mqtt"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "CAN Tools",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "integrations/socketcan",
+              "integrations/savvycan",
+              "integrations/busmaster",
+              "integrations/realdash",
+              "integrations/car-scanner"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "api/mqtt-api",
+              "api/http-api",
+              "api/expression-syntax"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

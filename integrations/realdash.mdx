@@ -1,0 +1,131 @@
+---
+title: "RealDash"
+description: "Connect WiCAN to RealDash over WiFi or BLE to build custom vehicle dashboards on Android, iOS, and Windows."
+---
+
+[RealDash](https://realdash.net) is a customizable dashboard application that displays live vehicle data using gauges, graphs, and custom graphics. WiCAN supports RealDash through two connection modes:
+
+- **CAN/LIN adapter mode** — WiCAN forwards raw CAN frames using the RealDash 66 binary protocol. This gives RealDash direct access to all bus traffic.
+- **OBD-II adapter mode** — WiCAN acts as an ELM327-compatible OBD-II adapter, responding to standard PID requests from RealDash.
+
+RealDash is available for Android, iOS, and Windows 10. BLE connectivity is supported on Android and iOS only; Windows requires a WiFi connection.
+
+<Note>
+  The **protocol** and **CAN bitrate** must be configured in the WiCAN web interface before connecting RealDash. RealDash does not configure these settings itself.
+</Note>
+
+## CAN adapter (raw frames)
+
+Use this mode to pass all CAN bus frames directly to RealDash. You can then create custom gauges mapped to any frame ID and byte offset.
+
+### Configure WiCAN
+
+Open the WiCAN web interface and go to the **Settings** tab:
+
+1. Select the correct **CAN bitrate** for your vehicle
+2. Set **Protocol** to `realdash 66`
+3. Set **Port Type** to `TCP`
+4. Click **Submit changes**
+
+### Connect RealDash over WiFi
+
+<Steps>
+  <Step title="Open the garage">
+    In RealDash, tap the garage icon and open your dashboard.
+  </Step>
+  <Step title="Add a connection">
+    Tap **Add connection**.
+  </Step>
+  <Step title="Select adapter type">
+    Choose **Adapter (CAN/LIN)**.
+  </Step>
+  <Step title="Select protocol">
+    Choose **RealDash CAN**.
+  </Step>
+  <Step title="Select connection method">
+    Choose **WIFI/LAN**.
+  </Step>
+  <Step title="Enter IP and port">
+    Enter the WiCAN IP address and port number. If connecting directly to the WiCAN access point, use `192.168.80.1` and port `3333`. If WiCAN is on your home network, use the Station IP shown in the **Status** tab.
+  </Step>
+  <Step title="Finish">
+    Tap **Done**. RealDash will connect and begin receiving CAN frames.
+  </Step>
+</Steps>
+
+### Connect RealDash over BLE
+
+BLE requires firmware v1.65 or later. Update to the [latest firmware](https://github.com/meatpiHQ/wican-fw/releases/) if you are on v1.64 or below.
+
+<Steps>
+  <Step title="Enable BLE on WiCAN">
+    In the WiCAN web interface **Settings** tab, set **BLE Status** to **Enabled** and click **Submit changes**.
+  </Step>
+  <Step title="Add a connection in RealDash">
+    Open your dashboard and tap **Add connection → Adapter (CAN/LIN) → RealDash CAN**.
+  </Step>
+  <Step title="Select Bluetooth">
+    Choose **Bluetooth** as the connection method and select your WiCAN device from the list.
+  </Step>
+  <Step title="Finish">
+    Tap **Done**.
+  </Step>
+</Steps>
+
+<Warning>
+  When BLE is active and a device is connected, WiCAN automatically disables the WiFi configuration access point. To reconfigure the device, disconnect BLE from your phone or tablet — the access point will come back online automatically.
+</Warning>
+
+### Connect WiCAN-USB via USB
+
+WiCAN-USB can connect to RealDash directly over the USB serial interface in addition to WiFi and BLE.
+
+<Steps>
+  <Step title="Add a connection in RealDash">
+    Open your dashboard and tap **Add connection → Adapter (CAN/LIN) → RealDash CAN**.
+  </Step>
+  <Step title="Select SERIAL/USB">
+    Choose **SERIAL/USB** as the connection method.
+  </Step>
+  <Step title="Select the device">
+    Pick the WiCAN-USB serial port from the device list.
+  </Step>
+  <Step title="Set baud rate">
+    Set the baud rate to `4000000`. This is the USB serial link speed, not the CAN bus bitrate.
+  </Step>
+  <Step title="Finish">
+    Tap **Next**, then **Done**.
+  </Step>
+</Steps>
+
+## OBD-II adapter
+
+Use this mode to read standard OBD-II PIDs (speed, RPM, coolant temperature, etc.) from RealDash without writing custom frame mappings.
+
+<Steps>
+  <Step title="Add a connection in RealDash">
+    Open your dashboard and tap **Add connection**.
+  </Step>
+  <Step title="Select OBD2">
+    Choose **Adapter OBD2**.
+  </Step>
+  <Step title="Select connection method">
+    Choose **Bluetooth** or **WiFi**. For WiFi, enter IP `192.168.80.1` and port `3333`.
+  </Step>
+  <Step title="Set the OBD-II protocol">
+    Tap **OBD2 PROTOCOL** and select the protocol for your vehicle:
+    - `11 bit ID, 500 Kbit` — most modern vehicles
+    - `11 bit ID, 250 Kbit` — older CAN vehicles
+    - `29 bit ID, 500 Kbit` — extended ID vehicles
+  </Step>
+  <Step title="Enable first-reply mode">
+    Enable **Request Only First Reply**. This prevents RealDash from waiting for multiple ECU responses and improves reliability.
+  </Step>
+  <Step title="Finish">
+    Tap **Done**.
+  </Step>
+</Steps>
+
+<Tip>
+  If you are unsure which OBD-II protocol your vehicle uses, start with `11 bit ID, 500 Kbit`. If that does not connect, try `11 bit ID, 250 Kbit` next.
+</Tip>

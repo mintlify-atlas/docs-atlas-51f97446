@@ -1,0 +1,152 @@
+---
+title: "Supported vehicles"
+description: "Browse vehicles with pre-built WiCAN profiles, understand compatibility notes, and learn how to check or request support for your vehicle."
+---
+
+## Overview
+
+WiCAN vehicle profiles are community-submitted JSON files that define vehicle-specific PID requests and expressions. They are primarily needed for electric and hybrid vehicles, where key parameters like State of Charge and State of Health are not available through standard OBD-II PIDs.
+
+<Info>
+Standard OBD-II PIDs work on most petrol and diesel vehicles even without a vehicle-specific profile. See [Standard PIDs](/config/automate/usage#standard-pids) in the Automate usage guide.
+</Info>
+
+The list below reflects profiles that have been tested and verified through user feedback. If your vehicle is not listed, you may still be able to use standard PIDs, or you can create and submit a new profile.
+
+## Important notes before purchasing
+
+<Warning>
+**Profiles are user-submitted.** Compatibility is based on user reports and may not cover every trim level, model year, or regional variant.
+</Warning>
+
+### WiCAN PRO recommended
+
+The **WiCAN PRO** is strongly recommended for the following reasons:
+
+- It includes an **advanced OBD chip** with broader vehicle compatibility.
+- It receives the **latest firmware updates** and new features.
+- The original WiCAN hardware has **memory limitations** that restrict future support.
+
+Some vehicles — including BMW 528i, BMW i3, BMW M340d, and Mini Cooper SE Electric — are **only supported on WiCAN PRO**.
+
+### Vehicle alarm triggers
+
+On some vehicles, leaving an OBD adapter connected and polling the ECU while the car is off may trigger the vehicle's alarm. This behavior is controlled by the vehicle's firmware. In some cases it can be disabled in the vehicle settings; in others it cannot.
+
+## Checking compatibility
+
+<Steps>
+  <Step title="Search the vehicle list below">
+    Check if your make and model appears in the supported vehicles list on this page.
+  </Step>
+  <Step title="Search GitHub issues">
+    Even if your vehicle is not listed, search the [WiCAN GitHub issues](https://github.com/meatpiHQ/wican-fw/issues) for your make and model. Users frequently share working configurations, known issues, and tips.
+  </Step>
+  <Step title="Try standard PIDs">
+    If no vehicle-specific profile exists, enable **Standard PIDs** in the **Automate** tab and run **Scan PIDs** to detect which parameters your vehicle supports.
+  </Step>
+  <Step title="Request support or create a profile">
+    If your vehicle is not supported, open a GitHub issue or follow the [Vehicle profiles](/config/automate/vehicle-profiles) guide to create one yourself.
+  </Step>
+</Steps>
+
+## Getting the latest profiles
+
+Vehicle profiles are updated as new contributions are merged. To get the most current list:
+
+1. Open the WiCAN web interface.
+2. Go to the **Automate** tab.
+3. Under **Vehicle Specific**, click **Get Latest**.
+
+This downloads the current profile list from the WiCAN server and refreshes the **Vehicle Model** dropdown.
+
+## Requesting a new vehicle
+
+To request support for a vehicle that is not currently listed:
+
+1. Search [existing GitHub issues](https://github.com/meatpiHQ/wican-fw/issues) to avoid duplicates.
+2. Open a new issue with the make, model, year, and any known PID information.
+3. If you can capture Car Scanner logs or have identified the relevant PIDs, include them — this significantly speeds up profile creation.
+
+See [Vehicle profiles](/config/automate/vehicle-profiles) for a step-by-step guide to building and submitting your own profile.
+
+## Supported vehicles
+
+<Note>
+Vehicles marked **WiCAN PRO only** require the PRO hardware version.
+</Note>
+
+| Make | Model |
+|---|---|
+| Audi | PQ25 / PQ26 / PQ35 / PQ46 / MQB |
+| BMW | 528i *(WiCAN PRO only)* |
+| BMW | i3 *(WiCAN PRO only)* |
+| BMW | M340d *(WiCAN PRO only)* |
+| BYD | Atto 3 |
+| BYD | Dolphin / Shark |
+| BYD | Seal |
+| Chevrolet | Bolt |
+| Chevrolet | Volt / Ampera |
+| Chrysler | Pacifica 2015+ |
+| Citroen | C-Zero |
+| Cupra | Seat Leon |
+| Dacia | Spring / CITY K-ZE |
+| Fiat | 600e |
+| Fiat | e-Ulysse |
+| Ford | Focus RS (MK3) |
+| Ford | Transit North America 2022 |
+| Genesis | GV60 / GV70 EV / G80 Electrified |
+| GMC | Sierra 2004+ |
+| GMC | Sierra EV |
+| GWM | Ora Good Cat / Funky Cat / ES11 / Haomao / Ora 03 |
+| Honda | Clarity 2018 |
+| Honda | Prologue |
+| Hyundai | Ioniq Electric 38 kWh (2020–2021) |
+| Hyundai | Ioniq 2017 |
+| Hyundai | Ioniq 5 / Ioniq 6 (2021–2024) |
+| Hyundai | Ioniq 5 / Ioniq 6 72 kWh |
+| Hyundai | Ioniq 5 / Ioniq 6 77 kWh (2021–2024) |
+| Hyundai | Ioniq 9 |
+| Hyundai | Kona |
+| Jaguar | I-PACE |
+| KGM | Torres EVX |
+| Kia | EV6 |
+| Kia | EV6 77 kWh |
+| Kia | Niro EV |
+| Kia | Niro PHEV |
+| Kia | Niro / Soul |
+| Maxus | T90 / EUNIC5 / EUNIC6 / EUNIC9 / EV30 / EG10 / eDeliver3 / eDeliver9 |
+| MG | MG5 / Marvel / ZS |
+| Mini Cooper | SE Electric *(WiCAN PRO only)* |
+| Mitsubishi | iMiEV / Outlander PHEV |
+| Mitsubishi | Outlander PHEV 2023 |
+| Mitsubishi | Outlander PHEV 2025 |
+| Nissan | Ariya |
+| Nissan | Leaf ZE1 |
+| Nissan | Patrol / Armada Y62 |
+| Opel | Ampere-E |
+| Opel | Astra |
+| Opel | EOBD (2004–present) |
+| Peugeot | e-208 |
+| Peugeot | iON |
+| Porsche | Taycan |
+| RAM | Promaster 3500 (2019) |
+| Renault | Zoe Ph2 (2020–) |
+| Renault | Zoe R110 / R90 |
+| Renault | Ariya / Scenic EV E-TECH / Renault 5 E-TECH / Renault 4 E-TECH / Megane E-TECH GSR2 2024 / Master EV E-TECH |
+| Renault | Kangoo Z.E. |
+| Renault | Twizy |
+| Skoda | Karoq |
+| Smart | #1 |
+| Smart | EQ |
+| Subaru | Outback 2.5 NA Gen6 |
+| Toyota | Hilux |
+| Toyota | Rav4 |
+| Volvo | XC40 |
+| Volvo | XC40 BEV |
+| Volvo | XC60 PHEV |
+| VW | e-Golf |
+| VW | e-Up |
+| VW | ID |
+| Xpeng | G6 |
+| Zeekr | 001 |

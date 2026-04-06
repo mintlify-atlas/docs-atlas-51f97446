@@ -1,0 +1,66 @@
+---
+title: "BUSmaster"
+description: "Connect WiCAN to BUSmaster on Windows for CAN bus logging, analysis, and simulation using SLCAN over TCP."
+---
+
+[BUSmaster](https://rbei-etas.github.io/busmaster/) is an open-source Windows application for simulating, analyzing, and testing CAN and LIN data buses. WiCAN connects to a customized version of BUSmaster via the **VSCom CAN-API** driver over a TCP connection using the SLCAN protocol.
+
+<Warning>
+  BUSmaster requires a specific build that includes the VSCom CAN-API driver with TCP support. Download the correct version from the [WiCAN BUSmaster releases folder](https://drive.google.com/drive/folders/1qJelUAHGrn_YbNIP0Jk_KmNENG-hKbtl?usp=sharing) — the standard BUSmaster installer from the official site does not include this driver.
+</Warning>
+
+## Configure WiCAN
+
+Open the WiCAN web interface and go to the **Settings** tab:
+
+1. Set **Protocol** to `slcan`
+2. Set **Port Type** to `TCP`
+3. Click **Submit changes** — the device will reboot
+
+<Note>
+  The CAN bitrate is configured inside BUSmaster's channel settings, not in the WiCAN web interface. Leave the bitrate at any value for now; it will be overridden by BUSmaster.
+</Note>
+
+## Configure BUSmaster
+
+<Steps>
+  <Step title="Select the VSCom CAN-API driver">
+    In BUSmaster, go to **Driver Selection → VSCom CAN-API**.
+  </Step>
+  <Step title="Open channel configuration">
+    Click **Channel Configuration → Advanced**.
+  </Step>
+  <Step title="Enter the WiCAN IP and port">
+    Fill in the IP address and port for your WiCAN device. Use the format:
+
+    ```
+    192.168.80.1:3333
+    ```
+
+    Replace `192.168.80.1` with the IP shown in the WiCAN **Status** tab if the device is on your home network.
+  </Step>
+  <Step title="Enable hardware timestamps">
+    Check the **Hardware Timestamps** checkbox. This improves timing accuracy for captured frames.
+  </Step>
+  <Step title="Set the CAN bitrate">
+    Choose the bitrate that matches your vehicle's CAN bus (typically 500 Kbit/s for modern vehicles, 250 Kbit/s for older ones).
+  </Step>
+  <Step title="Connect">
+    Click **OK** to close the configuration dialog, then click the **Connect** button in the top-left corner of BUSmaster.
+  </Step>
+</Steps>
+
+## Features
+
+With WiCAN connected to BUSmaster you can:
+
+- **Log** — record CAN frames to `.blf` or ASCII log files with timestamps
+- **Replay** — play back recorded logs to simulate bus traffic
+- **Filter** — define message and signal filters by ID or value range
+- **Signal watch** — monitor decoded signal values in a live table
+- **Statistics** — view bus load, error counters, and frame rates
+- **Simulation** — write and execute C-based node simulation scripts that send frames on the bus
+
+<Tip>
+  BUSmaster supports importing `.dbc` files for signal decoding. Load your vehicle's DBC file via **Database → Associate** to see named signals in the message window.
+</Tip>

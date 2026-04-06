@@ -1,0 +1,136 @@
+---
+title: "Home Assistant via MQTT"
+description: "Connect WiCAN to Home Assistant using an MQTT broker for real-time vehicle data with automatic sensor discovery."
+---
+
+WiCAN can send vehicle data to Home Assistant through an MQTT broker. This approach suits setups that already run Mosquitto or that need raw MQTT access from multiple applications simultaneously.
+
+<Note>
+  The [official HACS integration](/home-assistant/integration-setup) is the recommended method for Home Assistant. Use MQTT if you have a specific reason, such as an existing MQTT infrastructure or integration with non-HA applications.
+</Note>
+
+## Prerequisites
+
+- **Home Assistant OS** with add-on support, or an external MQTT broker accessible from both WiCAN and Home Assistant.
+- A WiCAN device with a vehicle profile already configured on the **Automate** tab.
+- WiCAN connected to the same WiFi network as your Home Assistant instance.
+
+## Step 1: Install and configure the MQTT broker
+
+<Steps>
+  <Step title="Install the Mosquitto add-on">
+    In Home Assistant, go to **Settings** > **Add-ons** > **Add-on Store** and install the [Mosquitto broker](https://github.com/home-assistant/addons/blob/master/mosquitto/DOCS.md). Start the add-on and enable **Start on boot**.
+  </Step>
+
+  <Step title="Create a WiCAN user">
+    Go to **Settings** > **People** > **Users** and create a new user for WiCAN. Record the username and password — you will enter these into the WiCAN settings.
+  </Step>
+</Steps>
+
+## Step 2: Configure WiCAN MQTT settings
+
+Open the WiCAN interface in your browser and go to the **Settings** tab. Fill in the MQTT fields:
+
+| Field | Value |
+|---|---|
+| **MQTT URL** | IP address or hostname of your Home Assistant server (e.g., `192.168.1.100`) |
+| **MQTT Port** | `1883` (default for Mosquitto) |
+| **MQTT User** | Username you created in step 1 |
+| **MQTT Password** | Password you created in step 1 |
+| **TX Topic** | Default value is sufficient (e.g., `wican/{device_id}/can/tx`) |
+| **RX Topic** | Default value is sufficient (e.g., `wican/{device_id}/can/rx`) |
+| **Status Topic** | Default value is sufficient (e.g., `wican/{device_id}/status`) |
+| **MQTT ELM327 Log** | Leave disabled unless debugging |
+| **Protocol** | Set to `AutoPID` |
+
+Click **Submit Changes** and reboot WiCAN.
+
+<Tip>
+  Use an IP address for the MQTT URL rather than a hostname to avoid DNS resolution issues. If Home Assistant is behind a reverse proxy, ensure port `1883` is forwarded.
+</Tip>
+
+## Step 3: Configure WiCAN automation for MQTT
+
+<Steps>
+  <Step title="Enable vehicle-specific settings">
+    Go to the **Automate** tab. Enable **Vehicle Specific** and select your vehicle model from the dropdown. Click the refresh button (⟳) first to download the latest vehicle profiles if needed.
+  </Step>
+
+  <Step title="Set the destination topic">
+    Set the **Destination Topic** to the MQTT topic where WiCAN should publish vehicle data. This is the topic your Home Assistant sensors will subscribe to.
+  </Step>
+
+  <Step title="Set the cycle time">
+    Set **Cycle Time (ms)** to control how frequently WiCAN polls the ECU. A value of `5000` (5 seconds) is a reasonable starting point.
+  </Step>
+
+  <Step title="Store and reboot">
+    Click **Store**, then go to the **About** tab and reboot the device.
+  </Step>
+</Steps>
+
+After rebooting, WiCAN will publish sensor data and discovery messages to the MQTT broker. Navigate to [Entities](https://my.home-assistant.io/redirect/entities) in Home Assistant to confirm the sensors have been created.
+
+## MQTT topic structure
+
+WiCAN uses the following topic structure by default, where `{device_id}` is the unique identifier shown in the **Status** tab:
+
+| Topic | Direction | Description |
+|---|---|---|
+| `wican/{device_id}/can/rx` | WiCAN → broker | CAN frames received from the vehicle bus (subscribe to receive data) |
+| `wican/{device_id}/can/tx` | broker → WiCAN | CAN frames to transmit onto the bus (publish to send frames) |
+| `wican/{device_id}/status` | WiCAN → broker | Device online/offline status |
+
+The status topic publishes `{"status": "online"}` when WiCAN connects and `{"status": "offline"}` as a last-will message when it disconnects.
+
+## Manual sensor configuration
+
+If you prefer to configure sensors manually, add entries to your `configuration.yaml`. WiCAN publishes each polled parameter as a separate JSON object to the **Destination Topic** you configured on the Automate tab. The default destination topic is the one you set in the Automate settings.
+
+The example below creates sensors by subscribing to individual CAN/RX frames and extracting values — replace the topic and `value_template` with values that match your specific vehicle's response format and the parameter names in your vehicle profile:
+
+```yaml
+mqtt:
+  sensor:
+    - name: "Battery state of charge"
+      state_topic: "wican/xxxxxxxxxxxx/can/rx"
+      unit_of_measurement: "%"
+      value_template: "{{ value_json.battery_soc }}"
+      device_class: battery
+
+    - name: "Engine coolant temperature"
+      state_topic: "wican/xxxxxxxxxxxx/can/rx"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.coolant_temp }}"
+      device_class: temperature
+```
+
+Replace `xxxxxxxxxxxx` with your device ID. The `value_template` field names must match the parameter names defined in your vehicle profile or custom PIDs on the Automate tab.
+
+<Tip>
+  For automatic sensor creation without manual YAML, use the [official HACS integration](/home-assistant/integration-setup) instead.
+</Tip>
+
+## Troubleshooting
+
+### Verify the MQTT connection with MQTT Explorer
+
+[MQTT Explorer](https://mqtt-explorer.com/) is available as a desktop app and as a [Home Assistant add-on](https://community.home-assistant.io/t/addon-mqtt-explorer-new-version/603739). Use it to confirm that WiCAN is publishing to the broker.
+
+1. Connect MQTT Explorer to your broker.
+2. Look for messages on the `wican/{device_id}/status` topic. If the status topic is receiving updates, the MQTT connection is working.
+3. If no data appears on the configured destination topic, verify that WiCAN is connected to the correct MQTT broker and that AutoPID is active with a vehicle profile selected.
+
+<AccordionGroup>
+  <Accordion title="No data appears in Home Assistant">
+    Confirm the MQTT broker is running and WiCAN's MQTT settings point to the correct broker. Verify that **Protocol** is set to `AutoPID` and that a vehicle model or standard PIDs are configured on the **Automate** tab. Check MQTT Explorer to confirm WiCAN is publishing to the broker.
+  </Accordion>
+
+  <Accordion title="Sensors show unavailable">
+    Confirm the MQTT username and password in WiCAN settings match the user created in Home Assistant. Also verify that **Protocol** is set to `AutoPID` and that a vehicle model is selected.
+  </Accordion>
+
+  <Accordion title="Updates are too slow or too frequent">
+    Adjust the **Cycle Time (ms)** on the **Automate** tab. Lower values increase update frequency but also increase CAN bus traffic. Reboot WiCAN after changing this value.
+  </Accordion>
+</AccordionGroup>

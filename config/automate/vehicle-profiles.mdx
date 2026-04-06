@@ -1,0 +1,297 @@
+---
+title: "Vehicle profiles"
+description: "Understand how vehicle profile JSON files work, how to create a new profile from Car Scanner logs, and how to submit it to the project."
+---
+
+## What is a vehicle profile?
+
+A vehicle profile is a JSON file that tells WiCAN how to communicate with a specific vehicle model. It defines:
+
+- The ELM327 AT initialization commands needed before any PID requests.
+- The PID command strings to send to the ECU.
+- The expression formulas to convert raw ECU bytes into meaningful parameter values.
+
+Profiles use the **ELM327 AT command protocol** rather than raw CAN frames. This is the same protocol used by apps like Car Scanner and Torque, which makes it straightforward to derive profiles from those apps' logs.
+
+<Info>
+Vehicle profiles are required for non-standard PIDs — primarily EV and hybrid parameters such as battery State of Charge, State of Health, and high-voltage current. Standard ICE parameters are available without a profile using [Standard PIDs](/config/automate/usage#standard-pids).
+</Info>
+
+## Profile structure
+
+Profiles follow a specific JSON schema. Each profile defines one vehicle model with a top-level initialization string and one or more PID entries.
+
+```json
+{
+  "car_model": "Make: Model",
+  "init": "ATSP6;ATSH7E4;ATST96;ATFCSH7E4;ATFCSD300000;ATFCSM0;",
+  "pids": [
+    {
+      "pid": "220101",
+      "parameters": [
+        {
+          "name": "SOC",
+          "expression": "B10/2",
+          "unit": "%",
+          "class": "battery",
+          "min": "0",
+          "max": "100"
+        },
+        {
+          "name": "HV_V",
+          "expression": "[B19:B20]/10",
+          "unit": "V",
+          "class": "voltage",
+          "min": "200",
+          "max": "480"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Field reference
+
+| Field | Required | Description |
+|---|---|---|
+| `car_model` | Yes | Display name in the format `"Make: Model"` |
+| `init` | Yes | Semicolon-separated AT commands sent before any PID requests |
+| `pids` | Yes | Array of PID objects |
+| `pid` | Yes | The PID command string (ELM327 format, e.g., `"2201019"`) |
+| `pid_init` | No | Per-PID initialization AT commands, sent before this PID only |
+| `parameters` | Yes | Array of parameters extracted from this PID's response |
+| `name` | Yes | Parameter identifier. Use a name from the [supported parameters](/config/automate/supported-parameters) list. |
+| `expression` | Yes | Formula to compute the value from response bytes (`B0`, `B1`, etc.) |
+| `unit` | No | Unit string (e.g., `"%"`, `"V"`, `"°C"`, `"km/h"`) |
+| `class` | No | Home Assistant device class (e.g., `"battery"`, `"temperature"`, `"voltage"`) |
+| `min` | No | Minimum valid value (string-encoded number) |
+| `max` | No | Maximum valid value (string-encoded number) |
+
+## Real profile examples
+
+### BYD Atto 3
+
+This profile demonstrates a multi-PID setup where each PID targets a different ECU module:
+
+```json
+{
+  "car_model": "BYD: Atto 3",
+  "init": "ATAT1;ATST96;ATSH7E7;ATFCSH7E7;ATFCSD300000;ATFCSM1;",
+  "pids": [
+    {
+      "pid": "221FFC1",
+      "parameters": [
+        {
+          "name": "SOC",
+          "expression": "((B5*256)+B4)/100",
+          "unit": "%",
+          "class": "battery",
+          "min": "0",
+          "max": "100"
+        }
+      ]
+    },
+    {
+      "pid": "220008",
+      "parameters": [
+        {
+          "name": "HV_V",
+          "expression": "[B4:B5]",
+          "unit": "V",
+          "class": "voltage",
+          "min": "200",
+          "max": "480"
+        }
+      ]
+    },
+    {
+      "pid": "220032",
+      "parameters": [
+        {
+          "name": "BATT_TEMP",
+          "expression": "B4-40",
+          "unit": "°C",
+          "class": "temperature",
+          "min": "-40",
+          "max": "80"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### BMW i3
+
+This profile shows per-PID initialization (`pid_init`) for a more complex multi-header ECU setup:
+
+```json
+{
+  "car_model": "BMW: i3",
+  "init": "ATAT0;ATCEA07;ATTAF1;ATFCSH6F1;ATSH6F1;ATFCSD07300000;ATFCSM1;ATCRA607;",
+  "pids": [
+    {
+      "pid": "22DDBC3",
+      "parameters": [
+        {
+          "name": "SOC",
+          "expression": "[B11:B12]/10",
+          "unit": "%",
+          "class": "battery",
+          "min": "0",
+          "max": "100"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Hyundai Ioniq 9 (worked example)
+
+The Ioniq 9 profile uses a single PID to extract multiple parameters from one response frame. Power (`HV_W`) is computed by combining voltage and current:
+
+```json
+{
+  "car_model": "Hyundai: Ioniq9",
+  "init": "ATSP6;ATSH7E4;ATST96;ATFCSH7E4;ATFCSD300000;ATFCSM0;",
+  "pids": [
+    {
+      "pid": "2201019",
+      "parameters": [
+        {
+          "name": "SOC",
+          "expression": "B10/2",
+          "unit": "%",
+          "class": "battery",
+          "min": "0",
+          "max": "100"
+        },
+        {
+          "name": "HV_A",
+          "expression": "(65536-([B17:B18]))/10",
+          "unit": "A",
+          "class": "current"
+        },
+        {
+          "name": "HV_V",
+          "expression": "[B19:B20]/10",
+          "unit": "V",
+          "class": "voltage"
+        },
+        {
+          "name": "HV_W",
+          "expression": "([B19:B20]/10)*((65536-([B17:B18]))/10)",
+          "unit": "W",
+          "class": "power"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Expression breakdown:**
+- `SOC`: Byte 10 divided by 2 gives state of charge as a percentage.
+- `HV_V`: Bytes 19–20 as a 16-bit value divided by 10 gives volts.
+- `HV_A`: The vehicle encodes current as `65536 − raw`, divided by 10 gives amps.
+- `HV_W`: Power in watts is `HV_V × HV_A`.
+
+## Creating a new vehicle profile
+
+The recommended workflow uses the **Car Scanner** app to capture ELM327 logs directly from your vehicle, then translates those logs into a WiCAN profile.
+
+<Steps>
+  <Step title="Switch WiCAN to ELM327 mode">
+    In the WiCAN web interface, go to **Settings** and set **Protocol** to **ELM327**. Disable MQTT if it is enabled. Submit and reboot.
+  </Step>
+
+  <Step title="Connect Car Scanner to WiCAN">
+    In Car Scanner, go to **Settings → Adapter OBDII ELM327** and select **WiFi**.
+
+    Enter the WiCAN IP and port:
+    - **WiCAN (standard):** IP `192.168.80.1`, Port `3333`
+    - **WiCAN PRO:** IP `192.168.0.10`, Port `35000`
+  </Step>
+
+  <Step title="Set the ECU protocol">
+    In Car Scanner's **Advanced settings**, select the ECU protocol. Try these in order until you can connect:
+
+    | Protocol code | Description |
+    |---|---|
+    | `6` | ISO 15765-4 CAN (11-bit ID, 500 kbaud) — most common |
+    | `7` | ISO 15765-4 CAN (29-bit ID, 500 kbaud) |
+    | `8` | ISO 15765-4 CAN (11-bit ID, 250 kbaud) |
+    | `9` | ISO 15765-4 CAN (29-bit ID, 250 kbaud) |
+
+    <Note>Only CAN-based protocols are supported by WiCAN.</Note>
+  </Step>
+
+  <Step title="Read a target parameter">
+    Once connected, select a parameter you want to profile (e.g., State of Charge) and let Car Scanner read it for several seconds. Note the displayed value — you'll need it to validate your expression later.
+  </Step>
+
+  <Step title="Export the log">
+    Unplug WiCAN from the OBD port to stop communication. In Car Scanner, go to **Settings → Adapter OBDII ELM327 → Export log**.
+
+    The log contains the full AT command sequence used for that session.
+  </Step>
+
+  <Step title="Extract the initialization commands">
+    In the exported log, identify the AT commands sent before the PID request. A typical sequence looks like:
+
+    ```
+    ATSP6   → Set protocol to CAN 11-bit, 500 kbaud
+    ATSH7E4 → Set CAN header (ECU address)
+    ATST96  → Set timeout
+    ATFCSH7E4 → Flow control header
+    ATFCSD300000 → Flow control data
+    ATFCSM0 → Flow control mode
+    ```
+
+    Commands such as `ATD0` and `ATH1` are handled automatically by WiCAN and do not need to be included.
+  </Step>
+
+  <Step title="Identify the PID">
+    Near the end of the log, find the repeating command that requests the target parameter. This is your PID string (e.g., `2201019`).
+  </Step>
+
+  <Step title="Write the expression">
+    Using the known parameter value and the raw byte positions in the response, derive the expression formula. Test it by comparing the calculated output against the value Car Scanner displayed.
+
+    See the [expression format](/config/automate/usage#expression-format) documentation for syntax reference.
+  </Step>
+
+  <Step title="Build and test the profile">
+    Assemble the JSON profile, switch WiCAN back to **AutoPID** protocol, and load the profile via **Vehicle Profiles** upload in the Automate tab. Verify the values match expectations.
+  </Step>
+</Steps>
+
+## Uploading a custom profile
+
+To load a profile without using **Get Latest**:
+
+1. Save your profile JSON as a `.json` file.
+2. In the **Automate** tab, under **Vehicle Specific**, click **Vehicle Profiles**.
+3. Upload the file. The profile will appear in the **Vehicle Model** dropdown.
+
+## Submitting a profile to the project
+
+Profiles merged into the WiCAN repository become available to all users via the **Get Latest** button.
+
+<Steps>
+  <Step title="Fork the repository">
+    Fork [meatpiHQ/wican-fw](https://github.com/meatpiHQ/wican-fw) on GitHub.
+  </Step>
+  <Step title="Add your profile to vehicle_profiles.json">
+    Open `vehicle_profiles.json` in the repository root. Add your profile entry to the `"cars"` array, following the format of existing entries. Insert it alphabetically by make and model.
+  </Step>
+  <Step title="Open a pull request">
+    Submit a pull request with a description of the vehicle, the parameters added, and any relevant notes about testing.
+  </Step>
+</Steps>
+
+<Tip>
+If you are not comfortable with Git, you can also share your profile JSON in a GitHub issue and a maintainer can integrate it.
+</Tip>
